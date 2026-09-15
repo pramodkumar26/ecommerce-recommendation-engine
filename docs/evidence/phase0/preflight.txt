@@ -1,0 +1,42 @@
+Phase 0 preflight capture
+date: 2026-09-15T06:35:11Z
+
+=== host ===
+      Model Name: MacBook Pro
+      Model Identifier: Mac17,2
+      Chip: Apple M5
+      Total Number of Cores: 10 (4 Super and 6 Efficiency)
+      Memory: 16 GB
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arch: arm64
+
+=== docker ===
+Docker version 29.7.2, build a7dcaa6
+Docker Compose version v5.5.1
+ServerVersion: 29.7.2
+NCPU: 10
+MemTotal_bytes: 8319504384
+OperatingSystem: Docker Desktop
+Architecture: aarch64
+
+=== cli versions ===
+openjdk version "17.0.20.1" 2026-08-18
+OpenJDK Runtime Environment Homebrew (build 17.0.20.1+0)
+OpenJDK 64-Bit Server VM Homebrew (build 17.0.20.1+0, mixed mode, sharing)
+Python 3.14.7
+Terraform v1.16.2
+2.90.0	2.90.0	1.1.0	
+gh version 2.97.0 (2026-07-31)
+git version 2.50.1 (Apple Git-155)
+
+=== container smoke test 1: hello-world ===
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+=== container smoke test 2: eclipse-temurin:17-jre ===
+openjdk version "17.0.20" 2026-07-21
+OpenJDK Runtime Environment Temurin-17.0.20+8 (build 17.0.20+8)
+OpenJDK 64-Bit Server VM Temurin-17.0.20+8 (build 17.0.20+8, mixed mode, sharing)
+container arch: aarch64
