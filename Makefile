@@ -3,7 +3,7 @@ PY := .venv/bin/python
 PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq clean
 
 help:
 	@echo "setup"
@@ -30,6 +30,11 @@ help:
 	@echo "  make simulate       replay events into kafka (LIMIT=, RATE=)"
 	@echo "  make verify-replay  phase 3 determinism and partitioning checks"
 	@echo "  make bench-producer producer rate control check"
+	@echo ""
+	@echo "schemas and dlq"
+	@echo "  make schemas          register avro schemas, test compatibility"
+	@echo "  make dlq-router       consume topics, route bad records to the dlq"
+	@echo "  make verify-schema-dlq  phase 4 checks (resets topics)"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -88,7 +93,7 @@ verify-event-id:
 topics:
 	$(PY) kafka/create_topics.py
 
-simulate: topics
+simulate: topics schemas
 	$(PY) producer/simulator.py --limit $(or $(LIMIT),20000) --rate $(or $(RATE),2000)
 
 verify-replay: topics
@@ -96,6 +101,15 @@ verify-replay: topics
 
 bench-producer: topics
 	./scripts/benchmark_producer.sh
+
+schemas:
+	$(PY) kafka/register_schemas.py
+
+dlq-router:
+	$(PY) kafka/dlq_router.py
+
+verify-schema-dlq: topics
+	$(PY) scripts/verify_schema_dlq.py
 
 clean:
 	docker compose --profile streaming down -v

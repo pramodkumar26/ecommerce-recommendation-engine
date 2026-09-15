@@ -1,7 +1,6 @@
 # Data Contracts
 
-Topic design and event structure. Avro schemas and Schema Registry compatibility rules are
-added in Phase 4; this currently describes the Phase 3 JSON payload.
+Topic design, event schemas, compatibility rules, and dead letter queue behaviour.
 
 ## Topics
 
@@ -54,9 +53,10 @@ than one partition.
 Kafka partitioning is not Delta partitioning. Delta partitions by time (Phase 7). Partitioning
 Delta by visitor id would produce a high-cardinality layout with 1.4 million directories.
 
-## Event payload, schema version 1
+## Event schema, version 1
 
-JSON in Phase 3. Phase 4 replaces this with Avro registered in Schema Registry.
+Avro, registered in Schema Registry. Source of truth is
+`producer/schemas/clickstream_event_v1.avsc`.
 
 ```json
 {
@@ -78,7 +78,7 @@ JSON in Phase 3. Phase 4 replaces this with Avro registered in Schema Registry.
 | `event_id` | string | SHA256, see `producer/event_id.py` |
 | `visitor_id` | long | also the partition key |
 | `item_id` | long | |
-| `event_type` | string | `view`, `addtocart`, `transaction` |
+| `event_type` | enum `EventType` | `view`, `addtocart`, `transaction`. An enum rather than a string so an unknown value fails at serialization |
 | `event_timestamp` | long | epoch ms, original 2015 source time |
 | `ingestion_timestamp` | long | epoch ms, when the producer emitted it |
 | `transaction_id` | string or null | present only on `transaction` events |
@@ -94,6 +94,136 @@ versus processing-time work possible, and what watermarks in Phase 6 operate on.
 
 The 138 days of source time are replayed in minutes, so the gap between the two is large and
 deliberate.
+
+## Schema Registry
+
+Subject naming is `TopicNameStrategy`, so each topic gets `<topic>-value`. All three behavioral
+topics register the same `ClickstreamEvent` schema today, but separate subjects mean one could
+diverge later without touching the others.
+
+| Subject | Schema |
+|---|---|
+| `item_view-value` | ClickstreamEvent |
+| `add_to_cart-value` | ClickstreamEvent |
+| `transaction-value` | ClickstreamEvent |
+| `clickstream_dlq-value` | DlqRecord |
+
+Registry compatibility level: `BACKWARD`. A new schema must be able to read data written with
+the previous one.
+
+### Why timestamps are plain longs and not `timestamp-millis`
+
+Avro has a `timestamp-millis` logical type and using it would be the more idiomatic choice. It
+is deliberately not used here.
+
+fastavro decodes `timestamp-millis` into timezone-aware `datetime` objects, and Spark's Avro
+reader maps it to `TimestampType` with session-timezone conversion applied. Phases 5 and 6
+depend on exact event-time semantics for watermarks and windowing, and a silent one-hour shift
+introduced by a timezone default would be extremely hard to detect and would quietly corrupt
+every windowed aggregate.
+
+Keeping raw epoch milliseconds means the conversion to a timestamp happens once, explicitly,
+where the timezone is stated. The field docs record this.
+
+### Schema evolution
+
+Three versions exist. Only v1 and v2 are ever registered.
+
+| Version | Change | Compatible under BACKWARD |
+|---|---|---|
+| v1 | baseline, ten fields | n/a |
+| v2 | adds optional `session_id` and `device_type`, both with `null` defaults | yes |
+| v3 | changes `item_id` from `long` to `string` | no, rejected by the registry |
+
+v2 is backward compatible because a reader using v2 encounters old records with the new fields
+absent and falls back to the declared defaults. Adding a field *without* a default would break
+this.
+
+v3 is rejected because `long` and `string` are not promotable in Avro schema resolution, so a
+v3 reader could not read any existing v1 data. The registry refuses the registration outright.
+v3 exists only to prove the guard works and is never registered.
+
+Verified: registry returns compatible for v2, incompatible for v3.
+
+### Forward read, v2 data through a v1 reader
+
+Separately from registration, a consumer pinned to v1 can still read records written with v2.
+Avro schema resolution drops writer fields the reader does not declare. Verified: a v2 record
+carrying `session_id` and `device_type` decodes through a v1 reader into exactly the ten v1
+fields, with the two extra fields silently discarded.
+
+This is what lets producers and consumers be upgraded independently rather than in lockstep.
+
+## Dead letter queue
+
+`kafka/validation.py` holds the rules, `kafka/dlq_router.py` applies them. Phase 5's Spark job
+reuses the same validation module, so a record judged bad by one is judged bad by the other.
+
+### Three failure layers, three error types
+
+| `error_type` | What failed | Example message |
+|---|---|---|
+| `deserialization_failed` | bytes are not a valid Confluent Avro frame | `SerializationError: Invalid magic byte` |
+| `unknown_schema_id` | framing is valid, the schema id was never registered | `Schema 964304 not found (HTTP 404, SR code 40403)` |
+| `validation_failed` | decodes cleanly, breaks a business rule | `non-transaction event carries transaction_id 'not-a-real-transaction'` |
+
+They are separated because they mean different things operationally. A deserialization failure
+usually means a non-Avro producer is writing to the topic. An unknown schema id usually means a
+producer is ahead of the registry or pointing at the wrong one. A validation failure means the
+data itself is wrong, which is a data-quality problem rather than a plumbing one.
+
+### Validation rules
+
+Every rule comes from the Phase 2 measurements, not from assumption.
+
+| Rule | Basis |
+|---|---|
+| `event_id` is 64 hex characters | SHA256 by construction |
+| `visitor_id` and `item_id` are non-negative | source contains no negatives |
+| `event_timestamp` within [1430622004384, 1442545187788] | measured source range |
+| `ingestion_timestamp` positive | producer sets it |
+| `event_type` is one of the three known values | enum in the schema |
+| topic matches event type | `item_view` carries only `view`, and so on |
+| transaction events have a `transaction_id`, others do not | measured, 0 exceptions in 2,756,101 rows |
+
+That last rule is only safe to enforce because Phase 2 confirmed it holds perfectly in the
+source. Guessing it would have been wrong.
+
+### DLQ record contents
+
+Defined in `producer/schemas/dlq_record.avsc`:
+
+```text
+original_payload      exact bytes as they arrived, so the failure can be reproduced
+error_type            one of the three above
+error_message         truncated to 2000 characters
+source_topic
+partition
+offset
+message_key
+ingestion_timestamp   when the router wrote the DLQ record, not when the event happened
+schema_version        null when the payload could not be decoded far enough to tell
+```
+
+Keeping `original_payload` as raw bytes is what makes a DLQ record actionable. Without it you
+know something failed but cannot reproduce it.
+
+### Measured behaviour
+
+Over 20,422 consumed records with a 5% malformed injection rate:
+
+| Measure | Value |
+|---|---:|
+| Consumed | 20,422 |
+| Valid, passed through | 19,462 |
+| Routed to DLQ | 960 |
+| DLQ rate | 4.70% |
+| `deserialization_failed` | 312 |
+| `unknown_schema_id` | 320 |
+| `validation_failed` | 328 |
+
+`valid + dlq == consumed` exactly, so nothing was lost or invented. The valid stream kept
+flowing throughout, which is the property this phase exists to prove.
 
 ## Simulator behaviour
 
@@ -134,13 +264,21 @@ order does not depend on how fast the machine happens to run.
 
 ### Malformed record modes
 
-Chosen from the seeded RNG:
+Chosen from the seeded RNG, one per decoding layer so each maps to a distinct DLQ error type:
 
-- `missing_field`: `visitor_id` removed
-- `wrong_type`: `event_timestamp` set to a string
-- `truncated_json`: payload cut in half, invalid JSON
+| Mode | Produces | DLQ error type |
+|---|---|---|
+| `raw_garbage` | 24 random bytes, no Confluent magic byte | `deserialization_failed` |
+| `unknown_schema_id` | valid framing, schema id in the 900000 range | `unknown_schema_id` |
+| `invalid_field` | valid Avro that breaks a business rule | `validation_failed` |
 
-Phase 4 routes all three to `clickstream_dlq` with the error type recorded.
+`invalid_field` further picks one of `negative_visitor`, `zero_timestamp`, or
+`orphan_transaction_id`.
+
+A record can be both malformed and duplicated, in which case the same bad payload appears twice
+on the wire. The simulator reports `malformed injected` (distinct records) and `malformed
+records on the wire` (including duplicate copies) separately, because DLQ counts must be
+compared against the second number.
 
 ### Producer configuration
 

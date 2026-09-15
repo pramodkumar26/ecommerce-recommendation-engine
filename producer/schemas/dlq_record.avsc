@@ -1,0 +1,63 @@
+{
+  "type": "record",
+  "name": "DlqRecord",
+  "namespace": "com.ecommerce.recommendation",
+  "doc": "A record that could not be decoded or failed validation. Carries enough context to debug it without going back to the source topic.",
+  "fields": [
+    {
+      "name": "original_payload",
+      "type": "bytes",
+      "doc": "Exact bytes as they arrived, so the failure can be reproduced."
+    },
+    {
+      "name": "error_type",
+      "type": {
+        "type": "enum",
+        "name": "DlqErrorType",
+        "symbols": [
+          "deserialization_failed",
+          "unknown_schema_id",
+          "validation_failed"
+        ]
+      }
+    },
+    {
+      "name": "error_message",
+      "type": "string"
+    },
+    {
+      "name": "source_topic",
+      "type": "string"
+    },
+    {
+      "name": "partition",
+      "type": "int"
+    },
+    {
+      "name": "offset",
+      "type": "long"
+    },
+    {
+      "name": "message_key",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "ingestion_timestamp",
+      "type": "long",
+      "doc": "When the router wrote this DLQ record, epoch milliseconds UTC."
+    },
+    {
+      "name": "schema_version",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null,
+      "doc": "Null when the payload could not be decoded far enough to tell."
+    }
+  ]
+}

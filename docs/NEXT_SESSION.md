@@ -7,56 +7,66 @@ the log at the bottom.
 ## Current state
 
 ```text
-phase:                Phase 3 complete
-last task completed:  Kafka topics and deterministic event simulator built and verified.
-branch / commit:      main, Phase 3 changes not yet committed
+phase:                Phase 4 complete
+last task completed:  Avro schemas, Schema Registry compatibility, and DLQ routing verified.
+branch / commit:      main, Phase 4 changes not yet committed
 services running:     streaming profile up (kafka, schema-registry, spark, redis)
 services stopped:     none
-next command to run:  make verify-replay   (reproduces every Phase 3 check)
+next command to run:  make verify-schema-dlq   (resets topics, reruns every Phase 4 check)
 unresolved error:     none
-next test:            Phase 4, compatible v2 event accepted, malformed routed to DLQ
+next test:            Phase 5, window metrics correct on a known fixture
 Azure left alive:     none, no Azure resources provisioned yet
 ```
 
-## Phase 3 result
+## Phase 4 result
 
-Definition of done, all met:
+Definition of done, all met. Ten checks pass:
 
-- simulator replays a bounded source range twice deterministically, with and without injections
-- partitioning verified: 11,420 distinct visitor keys, zero spanning more than one partition
-- producer rate is configurable and accurate
+- v2 accepted as backward compatible, v3 rejected by the registry
+- a v1 reader decodes a v2 record and drops the two unknown fields
+- every produced record consumed, 20,422 of 20,422
+- 960 malformed records routed to the DLQ, matching what was put on the wire
+- valid traffic kept flowing, 19,462 records
+- valid + DLQ == consumed exactly, nothing lost or invented
+- all three error types observed
+- DLQ records carry topic, partition, offset, key, and original bytes
 
-Evidence in `docs/evidence/phase3/` and `benchmarks/raw/replay_verification.json`,
-`benchmarks/raw/producer_rate.txt`. Four ledger rows added, all `pending` until commit.
+Evidence in `docs/evidence/phase4/` and `benchmarks/raw/schema_dlq_verification.json`,
+`benchmarks/raw/dlq_router_stats.json`. Four ledger rows added, `pending` until commit.
 
 ### What was built
 
-`kafka/topics/topics.yml` declares four topics, `kafka/create_topics.py` creates them
-idempotently. `producer/simulator.py` replays events with rate control, bursts, and seeded
-injection of duplicates, malformed records, and delays. `scripts/verify_replay.py` runs the
-eight Phase 3 checks. `scripts/benchmark_producer.sh` checks rate control.
+Four Avro schemas in `producer/schemas/`. `kafka/register_schemas.py` registers them and runs
+the compatibility checks. `kafka/validation.py` holds the decode and validation rules.
+`kafka/dlq_router.py` consumes, routes bad records, and keeps going.
+`scripts/verify_schema_dlq.py` runs the full Phase 4 proof after resetting topics and subjects.
 
-Topic design and the payload contract are documented in `docs/data_contracts.md`.
+The simulator now serialises Avro through Schema Registry. Its malformed modes were reworked to
+match Avro's failure layers: `raw_garbage`, `unknown_schema_id`, and `invalid_field`.
 
-### Two design decisions worth remembering
+### Three decisions worth remembering
 
-The source file is not sorted by timestamp. 1,377,377 adjacent pairs are out of order, roughly
-half the file. The simulator sorts by `(event_timestamp, source_row_number)` before replaying,
-so the baseline stream is strictly ordered and out-of-order arrival is injected deliberately at
-a known rate. If the input were already jumbled there would be no way to tell a working
-watermark from a favourably shuffled input.
+Timestamps are plain `long` epoch milliseconds, not the Avro `timestamp-millis` logical type.
+fastavro decodes that logical type into timezone-aware datetimes and Spark maps it to
+`TimestampType` with session-timezone conversion. Phases 5 and 6 depend on exact event-time
+semantics, and a silent timezone shift there would corrupt every windowed aggregate in a way
+that is very hard to spot.
 
-Delay injection shifts an event by a number of positions rather than by wall-clock time. That
-keeps emitted order reproducible regardless of machine speed, which is what makes the
-determinism guarantee hold.
+The `transaction_id` validation rule (present on transaction events, absent on all others) is
+only enforceable because Phase 2 measured it holding with zero exceptions across 2,756,101 rows.
 
-### Measured
+Validation rules live in a shared module so Phase 5's Spark job applies exactly the same rules
+as the Phase 4 router rather than a drifting second copy.
 
-Rate control tracks accurately: 500 requested gives 500.0, 2000 gives 1999.9, 10000 gives
-9992.7 events/sec. Unthrottled producer-only ceiling is 53,807 events/sec with nothing
-consuming, which is recorded as PRODUCER-CEILING-001 and explicitly not an end-to-end number.
+### Two bugs found and fixed during the phase
 
-Partition balance on `item_view` after 164,704 records: 53,420 / 55,859 / 55,425.
+The first Avro conversion called the corruption function twice per record, consuming the seeded
+RNG twice and selecting the mode twice. It showed up as double-counted malformed modes in the
+stats. The simulator was rewritten so every injection decision is drawn once, in a fixed order,
+inside `plan()`.
+
+The DLQ router reused the `record` variable across loop iterations, so a decode failure would
+have attached the previous record's `schema_version` to the DLQ entry. Now reset per iteration.
 
 ## Phase order change
 
@@ -70,7 +80,7 @@ Nothing before Phase 7 depends on Azure, so work continues locally through Phase
 Phase 1B slots in whenever access is resolved. Fallback if OIT declines: a personal Microsoft
 account at pay-as-you-go, roughly 5 USD a month.
 
-## Phase 2 result (previous)
+## Phase 2 result (earlier)
 
 Definition of done, both met:
 
@@ -160,18 +170,19 @@ answer is a custom image.
 
 ## Next up
 
-Phase 4, Avro, Schema Registry, and the DLQ. Replace the JSON payload with a registered Avro
-schema, create a v2 with optional `session_id` and `device_type`, test backward and forward
-compatibility, and route malformed records to `clickstream_dlq` with error metadata while valid
-traffic keeps flowing.
+Phase 5, core Spark streaming. Read all three topics from Kafka in Structured Streaming, parse
+event time, compute windowed aggregates, write live metrics to Redis, and write raw events to
+Delta on the local volume.
 
-Phase 4 is done when a compatible v2 event is accepted, an incompatible or malformed record is
-rejected or routed correctly, and the valid stream continues while bad events exist.
+Phase 5 is done when the stream processes all three topics and basic window metrics are correct
+on a known fixture.
 
-The simulator already injects three malformed modes (`missing_field`, `wrong_type`,
-`truncated_json`) with a fixed seed, so the DLQ has deterministic input to test against.
+Watch for: Spark needs the Kafka and Avro connector JARs, and the Spark image is 3.5.7 with
+Hadoop 3.3.4. Pin the matching `spark-sql-kafka-0-10` and `spark-avro` versions and record them
+in `docs/ENVIRONMENT.md`. This is the first phase that touches the JAR compatibility risk the
+roadmap budgets a day for in Phase 7.
 
-Estimate: 2 days.
+Estimate: 2 to 3 days.
 
 ## Open questions
 

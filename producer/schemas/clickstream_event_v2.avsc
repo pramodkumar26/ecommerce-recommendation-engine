@@ -1,0 +1,85 @@
+{
+  "type": "record",
+  "name": "ClickstreamEvent",
+  "namespace": "com.ecommerce.recommendation",
+  "doc": "A single behavioral event replayed from the Retailrocket source. Schema version 2.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "SHA256 over source position and business fields. Stable across replays."
+    },
+    {
+      "name": "visitor_id",
+      "type": "long",
+      "doc": "Anonymised visitor. Also the Kafka partition key."
+    },
+    {
+      "name": "item_id",
+      "type": "long"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": [
+          "view",
+          "addtocart",
+          "transaction"
+        ]
+      },
+      "doc": "Constrained to the three values present in the source."
+    },
+    {
+      "name": "event_timestamp",
+      "type": "long",
+      "doc": "When the behaviour happened, 2015 source time. Epoch milliseconds UTC as a plain long, not a logical type, so no implicit timezone conversion happens in fastavro or Spark."
+    },
+    {
+      "name": "ingestion_timestamp",
+      "type": "long",
+      "doc": "When the producer emitted the record. Processing time. Epoch milliseconds UTC as a plain long, not a logical type, so no implicit timezone conversion happens in fastavro or Spark."
+    },
+    {
+      "name": "transaction_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Present only on transaction events."
+    },
+    {
+      "name": "schema_version",
+      "type": "int"
+    },
+    {
+      "name": "source_file",
+      "type": "string"
+    },
+    {
+      "name": "source_row_number",
+      "type": "long",
+      "doc": "Original row index in the source file, before sorting. Part of event_id."
+    },
+    {
+      "name": "session_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Added in v2. Optional with a default, which is what makes this backward compatible."
+    },
+    {
+      "name": "device_type",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Added in v2. Optional with a default."
+    }
+  ]
+}

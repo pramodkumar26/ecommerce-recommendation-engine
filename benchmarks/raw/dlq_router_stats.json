@@ -1,0 +1,29 @@
+{
+  "consumed": 20422,
+  "valid": 19462,
+  "routed_to_dlq": 960,
+  "by_error_type": {
+    "deserialization_failed": 312,
+    "validation_failed": 328,
+    "unknown_schema_id": 320
+  },
+  "by_topic": {
+    "item_view": {
+      "valid": 18905,
+      "dlq": 939
+    },
+    "add_to_cart": {
+      "valid": 447,
+      "dlq": 18
+    },
+    "transaction": {
+      "valid": 110,
+      "dlq": 3
+    }
+  },
+  "first_error_examples": {
+    "deserialization_failed": "SerializationError: Invalid magic byte",
+    "validation_failed": "non-transaction event carries transaction_id 'not-a-real-transaction'",
+    "unknown_schema_id": "schema id not resolvable: Schema 979250 not found (HTTP status code 404, SR code 40403)"
+  }
+}

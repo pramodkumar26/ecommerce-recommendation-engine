@@ -1,0 +1,21 @@
+registry compatibility level: BACKWARD
+
+registering v1 on behavioral topics
+  item_view-value          schema_id=8 version=1
+  add_to_cart-value        schema_id=8 version=1
+  transaction-value        schema_id=8 version=1
+
+registering dlq schema
+  clickstream_dlq-value    schema_id=9 version=1
+
+compatibility checks against item_view-value
+  v2, adds two optional fields with defaults: compatible
+  v3, changes item_id from long to string:    rejected
+
+subjects and versions
+  add_to_cart-value        versions=[1]
+  clickstream_dlq-value    versions=[1]
+  item_view-value          versions=[1, 2]
+  transaction-value        versions=[1]
+
+PASS

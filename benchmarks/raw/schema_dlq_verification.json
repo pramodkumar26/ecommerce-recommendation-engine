@@ -1,0 +1,124 @@
+{
+  "topics_created": [
+    "created  item_view",
+    "created  add_to_cart",
+    "created  transaction",
+    "created  clickstream_dlq"
+  ],
+  "compatibility": {
+    "registry_level": "BACKWARD",
+    "v2_backward_compatible": true,
+    "v3_rejected": true,
+    "subjects": [
+      "add_to_cart-value",
+      "clickstream_dlq-value",
+      "item_view-value",
+      "transaction-value"
+    ]
+  },
+  "schema_resolution": {
+    "v2_record_decoded_by_v1_reader": true,
+    "v1_reader_sees_known_fields": true,
+    "v1_reader_drops_v2_only_fields": true,
+    "decoded_keys": [
+      "event_id",
+      "event_timestamp",
+      "event_type",
+      "ingestion_timestamp",
+      "item_id",
+      "schema_version",
+      "source_file",
+      "source_row_number",
+      "transaction_id",
+      "visitor_id"
+    ]
+  },
+  "produced": {
+    "emitted": 20421,
+    "malformed_distinct": 930,
+    "malformed_on_wire": 960,
+    "duplicates": 421,
+    "modes": {
+      "raw_garbage": 300,
+      "unknown_schema_id": 313,
+      "invalid_field:negative_visitor": 108,
+      "invalid_field:orphan_transaction_id": 103,
+      "invalid_field:zero_timestamp": 106
+    }
+  },
+  "router": {
+    "consumed": 20422,
+    "valid": 19462,
+    "routed_to_dlq": 960,
+    "by_error_type": {
+      "deserialization_failed": 312,
+      "validation_failed": 328,
+      "unknown_schema_id": 320
+    },
+    "by_topic": {
+      "item_view": {
+        "valid": 18905,
+        "dlq": 939
+      },
+      "add_to_cart": {
+        "valid": 447,
+        "dlq": 18
+      },
+      "transaction": {
+        "valid": 110,
+        "dlq": 3
+      }
+    },
+    "first_error_examples": {
+      "deserialization_failed": "SerializationError: Invalid magic byte",
+      "validation_failed": "non-transaction event carries transaction_id 'not-a-real-transaction'",
+      "unknown_schema_id": "schema id not resolvable: Schema 979250 not found (HTTP status code 404, SR code 40403)"
+    }
+  },
+  "dlq_samples": [
+    {
+      "error_type": "validation_failed",
+      "error_message": "non-transaction event carries transaction_id 'not-a-real-transaction'",
+      "source_topic": "add_to_cart",
+      "partition": 0,
+      "offset": 25,
+      "message_key": "1402823",
+      "original_payload_bytes": 131,
+      "schema_version": 1
+    },
+    {
+      "error_type": "deserialization_failed",
+      "error_message": "SerializationError: Invalid magic byte",
+      "source_topic": "add_to_cart",
+      "partition": 0,
+      "offset": 54,
+      "message_key": "53842",
+      "original_payload_bytes": 24,
+      "schema_version": null
+    },
+    {
+      "error_type": "unknown_schema_id",
+      "error_message": "schema id not resolvable: Schema 964304 not found (HTTP status code 404, SR code 40403)",
+      "source_topic": "item_view",
+      "partition": 0,
+      "offset": 157,
+      "message_key": "834374",
+      "original_payload_bytes": 107,
+      "schema_version": null
+    }
+  ],
+  "expected_consumed": 20422,
+  "checks": {
+    "v2_is_backward_compatible": true,
+    "v3_is_rejected": true,
+    "v1_reader_decodes_v2_record": true,
+    "v1_reader_drops_unknown_fields": true,
+    "every_produced_record_consumed": true,
+    "dlq_count_matches_malformed_on_wire": true,
+    "valid_traffic_kept_flowing": true,
+    "nothing_lost_or_invented": true,
+    "all_three_error_types_seen": true,
+    "dlq_records_carry_context": true
+  },
+  "passed": true
+}

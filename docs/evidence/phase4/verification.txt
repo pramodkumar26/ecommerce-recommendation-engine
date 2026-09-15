@@ -1,0 +1,102 @@
+Phase 4 verification summary
+
+compatibility: {
+  "registry_level": "BACKWARD",
+  "v2_backward_compatible": true,
+  "v3_rejected": true,
+  "subjects": [
+    "add_to_cart-value",
+    "clickstream_dlq-value",
+    "item_view-value",
+    "transaction-value"
+  ]
+}
+
+schema resolution: {
+  "v2_record_decoded_by_v1_reader": true,
+  "v1_reader_sees_known_fields": true,
+  "v1_reader_drops_v2_only_fields": true,
+  "decoded_keys": [
+    "event_id",
+    "event_timestamp",
+    "event_type",
+    "ingestion_timestamp",
+    "item_id",
+    "schema_version",
+    "source_file",
+    "source_row_number",
+    "transaction_id",
+    "visitor_id"
+  ]
+}
+
+router: {
+  "consumed": 20422,
+  "valid": 19462,
+  "routed_to_dlq": 960,
+  "by_error_type": {
+    "deserialization_failed": 312,
+    "validation_failed": 328,
+    "unknown_schema_id": 320
+  },
+  "by_topic": {
+    "item_view": {
+      "valid": 18905,
+      "dlq": 939
+    },
+    "add_to_cart": {
+      "valid": 447,
+      "dlq": 18
+    },
+    "transaction": {
+      "valid": 110,
+      "dlq": 3
+    }
+  }
+}
+
+dlq samples: [
+  {
+    "error_type": "validation_failed",
+    "error_message": "non-transaction event carries transaction_id 'not-a-real-transaction'",
+    "source_topic": "add_to_cart",
+    "partition": 0,
+    "offset": 25,
+    "message_key": "1402823",
+    "original_payload_bytes": 131,
+    "schema_version": 1
+  },
+  {
+    "error_type": "deserialization_failed",
+    "error_message": "SerializationError: Invalid magic byte",
+    "source_topic": "add_to_cart",
+    "partition": 0,
+    "offset": 54,
+    "message_key": "53842",
+    "original_payload_bytes": 24,
+    "schema_version": null
+  },
+  {
+    "error_type": "unknown_schema_id",
+    "error_message": "schema id not resolvable: Schema 964304 not found (HTTP status code 404, SR code 40403)",
+    "source_topic": "item_view",
+    "partition": 0,
+    "offset": 157,
+    "message_key": "834374",
+    "original_payload_bytes": 107,
+    "schema_version": null
+  }
+]
+
+  ok   v2_is_backward_compatible
+  ok   v3_is_rejected
+  ok   v1_reader_decodes_v2_record
+  ok   v1_reader_drops_unknown_fields
+  ok   every_produced_record_consumed
+  ok   dlq_count_matches_malformed_on_wire
+  ok   valid_traffic_kept_flowing
+  ok   nothing_lost_or_invented
+  ok   all_three_error_types_seen
+  ok   dlq_records_carry_context
+
+passed: True

@@ -1,8 +1,9 @@
 """Replay Retailrocket events into Kafka as controlled traffic.
 
 Determinism contract: for a fixed --seed and a fixed bounded range, the sequence of records
-emitted is byte-identical across runs, except for ingestion_timestamp which is wall clock by
-definition. Verified by scripts/verify_replay.py.
+emitted is identical across runs, except ingestion_timestamp which is wall clock by definition.
+Every injection decision is drawn from the seeded RNG exactly once, in a fixed order, so the
+plan is a pure function of the seed. Verified by scripts/verify_replay.py.
 
 Ordering: the source file is not sorted by timestamp (1,377,377 adjacent pairs are out of
 order). Replay sorts by (event_timestamp, source_row_number) so the baseline is ordered and
@@ -18,6 +19,9 @@ from pathlib import Path
 
 import pandas as pd
 from confluent_kafka import Producer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import MessageField, SerializationContext
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -25,13 +29,18 @@ from producer.event_id import event_id, normalize_transaction_id  # noqa: E402
 
 SOURCE_FILE = "events.csv"
 RAW = Path("data/raw")
+SCHEMAS = Path(__file__).resolve().parent / "schemas"
 SCHEMA_VERSION = 1
+MAGIC_BYTE = 0
 
 TOPIC_BY_EVENT = {
     "view": "item_view",
     "addtocart": "add_to_cart",
     "transaction": "transaction",
 }
+
+CORRUPTION_MODES = ["raw_garbage", "unknown_schema_id", "invalid_field"]
+INVALID_FIELD_MODES = ["negative_visitor", "zero_timestamp", "orphan_transaction_id"]
 
 
 def load_sorted(limit=None, start_row=0):
@@ -79,21 +88,29 @@ def build_record(row, ingestion_ms):
     }
 
 
-def corrupt(record, rng):
-    """Produce a record that a schema-aware consumer must reject. Phase 4 routes these to the DLQ."""
-    mode = rng.choice(["missing_field", "wrong_type", "truncated_json"])
+def apply_invalid_field(record, which):
+    """A record that serialises fine but violates a documented business rule."""
     bad = dict(record)
-    if mode == "missing_field":
-        bad.pop("visitor_id", None)
-        return json.dumps(bad).encode("utf-8"), mode
-    if mode == "wrong_type":
-        bad["event_timestamp"] = "not-a-timestamp"
-        return json.dumps(bad).encode("utf-8"), mode
-    return json.dumps(bad)[: len(json.dumps(bad)) // 2].encode("utf-8"), mode
+    if which == "negative_visitor":
+        bad["visitor_id"] = -1
+    elif which == "zero_timestamp":
+        bad["event_timestamp"] = 0
+    elif bad["event_type"] != "transaction":
+        bad["transaction_id"] = "not-a-real-transaction"
+    else:
+        bad["transaction_id"] = None
+    return bad
+
+
+def corrupt_bytes(good_payload, mode, garbage, bogus_schema_id):
+    """Bytes a schema-aware consumer must reject, one failure mode per decoding layer."""
+    if mode == "raw_garbage":
+        return garbage
+    return bytes([MAGIC_BYTE]) + bogus_schema_id.to_bytes(4, "big") + good_payload[5:]
 
 
 def plan(df, rng, duplicate_rate, malformed_rate, delay_rate, max_delay_positions):
-    """Decide every injection up front so the plan is a pure function of the seed.
+    """Decide every injection up front, drawing from the RNG in a fixed order.
 
     Delays shift an event by a number of positions rather than by wall-clock time, so the
     emitted order is reproducible regardless of how fast the machine runs.
@@ -115,6 +132,12 @@ def plan(df, rng, duplicate_rate, malformed_rate, delay_rate, max_delay_position
         shift = rng.randint(1, max_delay_positions) if is_late else 0
 
         entry = {"row": r, "duplicate": is_dupe, "malformed": is_bad}
+        if is_bad:
+            entry["corruption"] = rng.choice(CORRUPTION_MODES)
+            entry["invalid_field"] = rng.choice(INVALID_FIELD_MODES)
+            entry["garbage"] = bytes(rng.randrange(256) for _ in range(24))
+            entry["bogus_schema_id"] = rng.randrange(900000, 999999)
+
         if shift:
             deferred.setdefault(i + shift, []).append(entry)
         else:
@@ -133,6 +156,8 @@ def plan(df, rng, duplicate_rate, malformed_rate, delay_rate, max_delay_position
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bootstrap", default="localhost:9092")
+    ap.add_argument("--schema-registry", default="http://localhost:8081")
+    ap.add_argument("--format", choices=["avro", "json"], default="avro")
     ap.add_argument("--limit", type=int, default=None, help="events to replay after sorting")
     ap.add_argument("--start-row", type=int, default=0)
     ap.add_argument("--rate", type=float, default=500.0, help="target events per second")
@@ -166,13 +191,19 @@ def main():
         "emitted": 0,
         "duplicates": 0,
         "malformed": 0,
-        "by_topic": {t: 0 for t in TOPIC_BY_EVENT.values()},
+        "malformed_emitted": 0,
+        "by_topic": dict.fromkeys(TOPIC_BY_EVENT.values(), 0),
         "malformed_modes": {},
     }
 
     out_file = open(args.dry_run, "w") if args.dry_run else None
     producer = None
+    serializer = None
     if not args.dry_run:
+        if args.format == "avro":
+            sr = SchemaRegistryClient({"url": args.schema_registry})
+            schema_str = (SCHEMAS / "clickstream_event_v1.avsc").read_text()
+            serializer = AvroSerializer(sr, schema_str, lambda rec, ctx: rec)
         producer = Producer(
             {
                 "bootstrap.servers": args.bootstrap,
@@ -185,9 +216,23 @@ def main():
             }
         )
 
+    def encode(topic, record):
+        if serializer is None:
+            return json.dumps(record).encode("utf-8")
+        return serializer(record, SerializationContext(topic, MessageField.VALUE))
+
     def emit(topic, key, payload):
         if out_file:
-            out_file.write(json.dumps({"topic": topic, "key": key, "value": payload.decode("utf-8", "replace")}) + "\n")
+            out_file.write(
+                json.dumps(
+                    {
+                        "topic": topic,
+                        "key": key,
+                        "value": payload.decode("utf-8", "replace"),
+                    }
+                )
+                + "\n"
+            )
         else:
             producer.produce(topic, key=key.encode("utf-8"), value=payload)
             producer.poll(0)
@@ -200,11 +245,22 @@ def main():
         record = build_record(row, int(time.time() * 1000))
 
         if entry["malformed"]:
-            payload, mode = corrupt(record, rng)
+            mode = entry["corruption"]
+            if mode == "invalid_field":
+                bad = apply_invalid_field(record, entry["invalid_field"])
+                payload = encode(topic, bad)
+                mode = f"invalid_field:{entry['invalid_field']}"
+            elif out_file:
+                payload = json.dumps({"__corrupted__": mode}).encode("utf-8")
+            else:
+                payload = corrupt_bytes(
+                    encode(topic, record), mode, entry["garbage"], entry["bogus_schema_id"]
+                )
             stats["malformed"] += 1
+            stats["malformed_emitted"] += 1
             stats["malformed_modes"][mode] = stats["malformed_modes"].get(mode, 0) + 1
         else:
-            payload = json.dumps(record).encode("utf-8")
+            payload = encode(topic, record)
 
         emit(topic, key, payload)
         stats["emitted"] += 1
@@ -215,6 +271,8 @@ def main():
             stats["emitted"] += 1
             stats["by_topic"][topic] += 1
             stats["duplicates"] += 1
+            if entry["malformed"]:
+                stats["malformed_emitted"] += 1
 
         if not args.dry_run:
             pace(n + 1, start, args)
@@ -231,6 +289,7 @@ def main():
     print(f"by topic: {stats['by_topic']}")
     print(f"duplicates injected: {stats['duplicates']}")
     print(f"malformed injected: {stats['malformed']} {stats['malformed_modes']}")
+    print(f"malformed records on the wire: {stats['malformed_emitted']}")
     if args.dry_run:
         print(f"wrote {args.dry_run}")
     return 0
@@ -242,8 +301,7 @@ def pace(count, start, args):
     rate = args.rate
     if args.burst_rate and (elapsed % args.burst_every) < args.burst_duration:
         rate = args.burst_rate
-    target = count / rate
-    drift = target - elapsed
+    drift = count / rate - elapsed
     if drift > 0:
         time.sleep(drift)
 
