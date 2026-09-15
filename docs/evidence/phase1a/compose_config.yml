@@ -1,0 +1,254 @@
+name: ecomm-rec
+services:
+  kafka:
+    profiles:
+      - streaming
+      - all
+    container_name: kafka
+    deploy:
+      resources:
+        limits:
+          memory: "1610612736"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx1g
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://kafka:29092,CONTROLLER://kafka:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NODE_ID: "1"
+      KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+    healthcheck:
+      test:
+        - CMD
+        - kafka-broker-api-versions
+        - --bootstrap-server
+        - kafka:29092
+      timeout: 10s
+      interval: 10s
+      retries: 12
+      start_period: 30s
+    image: confluentinc/cp-kafka:7.9.2
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 9092
+        published: "9092"
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: kafka-data
+        target: /var/lib/kafka/data
+        volume: {}
+  redis:
+    profiles:
+      - streaming
+      - all
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - 200mb
+      - --maxmemory-policy
+      - allkeys-lru
+    container_name: redis
+    deploy:
+      resources:
+        limits:
+          memory: "268435456"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 5s
+      interval: 10s
+      retries: 6
+      start_period: 5s
+    image: redis:7.4-alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 6379
+        published: "6379"
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: redis-data
+        target: /data
+        volume: {}
+  schema-registry:
+    profiles:
+      - streaming
+      - all
+    container_name: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "805306368"
+    environment:
+      SCHEMA_REGISTRY_HEAP_OPTS: -Xms256m -Xmx512m
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: "1"
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:8081/subjects
+      timeout: 5s
+      interval: 10s
+      retries: 12
+      start_period: 20s
+    image: confluentinc/cp-schema-registry:7.9.2
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8081
+        published: "8081"
+        protocol: tcp
+  spark-master:
+    profiles:
+      - streaming
+      - all
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - spark-master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    container_name: spark-master
+    deploy:
+      resources:
+        limits:
+          memory: "536870912"
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:8080
+      timeout: 5s
+      interval: 10s
+      retries: 12
+      start_period: 20s
+    image: apache/spark:3.5.7-python3
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+      - mode: ingress
+        target: 7077
+        published: "7077"
+        protocol: tcp
+    user: root
+    volumes:
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/streaming
+        target: /opt/spark/project/streaming
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/batch
+        target: /opt/spark/project/batch
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/scripts
+        target: /opt/spark/project/scripts
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/data/delta
+        target: /opt/spark/project/data/delta
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/data/checkpoints
+        target: /opt/spark/project/data/checkpoints
+        bind: {}
+  spark-worker:
+    profiles:
+      - streaming
+      - all
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --webui-port
+      - "8081"
+    container_name: spark-worker
+    depends_on:
+      spark-master:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "2684354560"
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_CORES: "4"
+      SPARK_WORKER_MEMORY: 2g
+    image: apache/spark:3.5.7-python3
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8081
+        published: "8082"
+        protocol: tcp
+    user: root
+    volumes:
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/streaming
+        target: /opt/spark/project/streaming
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/batch
+        target: /opt/spark/project/batch
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/scripts
+        target: /opt/spark/project/scripts
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/data/delta
+        target: /opt/spark/project/data/delta
+        bind: {}
+      - type: bind
+        source: /Users/arunpramod/Projects/Ecommerce/data/checkpoints
+        target: /opt/spark/project/data/checkpoints
+        bind: {}
+networks:
+  default:
+    name: ecomm-rec_default
+volumes:
+  kafka-data:
+    name: ecomm-rec_kafka-data
+  redis-data:
+    name: ecomm-rec_redis-data

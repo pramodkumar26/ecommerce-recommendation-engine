@@ -1,0 +1,49 @@
+Phase 1A smoke tests and resource usage
+date: 2026-09-15T07:03:34Z
+
+=== container status ===
+NAME              IMAGE                                   STATUS
+kafka             confluentinc/cp-kafka:7.9.2             Up 2 minutes (healthy)
+redis             redis:7.4-alpine                        Up 2 minutes (healthy)
+schema-registry   confluentinc/cp-schema-registry:7.9.2   Up 2 minutes (healthy)
+spark-master      apache/spark:3.5.7-python3              Up About a minute (healthy)
+spark-worker      apache/spark:3.5.7-python3              Up About a minute
+
+=== spark cluster ===
+master: ALIVE
+alive workers: 1
+cores: 4 memory MB: 2048
+
+=== smoke tests ===
+run 11c1c4cb: broker reachable, 1 broker(s), topic smoke_test present
+produced 9 messages across partitions [0, 1, 2]
+consumed 9 messages from this run, partitions [0, 1, 2]
+each key landed on exactly one partition: True
+  ok   all produced messages consumed
+  ok   key to partition mapping stable
+  ok   read partitions match written
+PASS
+spark version: 3.5.7
+master: spark://spark-master:7077
+default parallelism: 2
+total rows: 1000
+  visitor-0: 250 events, 7 distinct items
+  visitor-1: 250 events, 7 distinct items
+  visitor-2: 250 events, 7 distinct items
+  visitor-3: 250 events, 7 distinct items
+shuffle across 8 partitions produced 3 event_code groups
+PASS
+ping ok
+top item: [('item-2', 9.0)]
+used memory: 1.11M, maxmemory: 200.00M
+PASS
+
+=== docker stats, idle ===
+NAME              MEM USAGE / LIMIT   MEM %     CPU %
+kafka             496.5MiB / 1.5GiB   32.33%    79.15%
+schema-registry   306MiB / 768MiB     39.84%    1.73%
+spark-master      168.6MiB / 512MiB   32.93%    0.10%
+spark-worker      238.9MiB / 2.5GiB   9.33%     0.12%
+redis             20.09MiB / 256MiB   7.85%     0.75%
+
+Docker MemTotal: 8319504384 bytes

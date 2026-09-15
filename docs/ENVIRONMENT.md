@@ -106,30 +106,50 @@ Spark, and Delta JARs.
 
 | Component | Version | Pinned where | Notes |
 |---|---|---|---|
-| Java | OpenJDK 17.0.20.1 | host, Homebrew `openjdk@17` | Spark 3.5 supports 8/11/17 |
-| Kafka | | | |
-| Schema Registry | | | |
-| Spark | | | |
-| Delta Lake | | | |
-| hadoop-azure | | | |
-| azure-storage | | | |
-| Hadoop | | | |
-| Redis | | | |
-| Python (project venv) | | | not the system 3.14.7, see above |
-| Python packages | | | |
+| Java (host) | OpenJDK 17.0.20.1 | Homebrew `openjdk@17` | Spark 3.5 supports 8/11/17 |
+| Java (Spark image) | OpenJDK 17 | `apache/spark:3.5.7-python3` | matches host major version |
+| Kafka | Confluent 7.9.2 | `.env`, `CONFLUENT_VERSION` | KRaft mode, no Zookeeper |
+| Schema Registry | Confluent 7.9.2 | `.env`, `CONFLUENT_VERSION` | same version as broker |
+| Spark | 3.5.7 | `.env`, `SPARK_VERSION` | `apache/spark:3.5.7-python3` |
+| Hadoop (bundled) | 3.3.4 | bundled in Spark 3.5.7 | drives the Phase 7 ABFS JAR choice |
+| Delta Lake | | | Phase 7 |
+| hadoop-azure | | | Phase 7, must match Hadoop 3.3.4 |
+| azure-storage | | | Phase 7 |
+| Redis | 7.4-alpine | `.env`, `REDIS_VERSION` | appendonly, 200 MB maxmemory |
+| Python (project venv) | 3.11.16 | `.venv`, Homebrew `python@3.11` | not the system 3.14.7, see above |
+| Python (Spark image) | 3.8.10 | `apache/spark:3.5.7-python3` | see Spark version note below |
+| Python packages | see `requirements.txt` | `requirements.txt` | confluent-kafka 2.12.0, redis 6.4.0 |
+
+### Spark version choice
+
+Spark 3.5.7 was chosen over Spark 4.0.1 deliberately.
+
+Spark 3.5.7 bundles Hadoop 3.3.4, which is the most widely documented pairing with
+`hadoop-azure` and Delta Lake 3.x. Phase 7 carries the roadmap's only budgeted risk day for
+ABFS and JAR compatibility, and Spark 4.0 bundles Hadoop 3.4, which would trade a well
+understood problem for an unfamiliar one.
+
+The cost is that `apache/spark:3.5.7-python3` ships Python 3.8.10 while the project venv is
+3.11.16. This is acceptable because all Spark code runs inside the container, where driver and
+executor share the same 3.8 interpreter. The 3.11 venv serves the producer, ML training, and
+the API, none of which share a Python process with Spark. If a Spark job ever needs a newer
+interpreter, the fix is a custom Spark image, not a version downgrade elsewhere.
+
+Spark 4.0.1 was verified to have an arm64 build with Python 3.10.12 and Java 17, so the option
+remains open if Phase 7 goes badly.
 
 ## Local memory budget
 
 Rough development targets from roadmap section 3, to compare against actual `docker stats`
 output once the streaming profile runs in Phase 1A.
 
-| Service | Rough target RAM | Measured |
-|---|---:|---|
-| Kafka | 0.75 to 1.5 GB | |
-| Schema Registry | 0.5 to 0.8 GB | |
-| Spark master | 0.25 to 0.5 GB | |
-| Spark worker | 2 to 4 GB | |
-| Redis | 0.1 to 0.25 GB | |
+| Service | Rough target RAM | Compose limit | Measured idle |
+|---|---:|---:|---:|
+| Kafka | 0.75 to 1.5 GB | 1536 MB | 497 MiB |
+| Schema Registry | 0.5 to 0.8 GB | 768 MB | 306 MiB |
+| Spark master | 0.25 to 0.5 GB | 512 MB | 169 MiB |
+| Spark worker | 2 to 4 GB | 2560 MB | 239 MiB |
+| Redis | 0.1 to 0.25 GB | 256 MB | 20 MiB |
 | Airflow webserver / API | 0.3 to 0.6 GB | |
 | Airflow scheduler | 0.3 to 0.6 GB | |
 | Airflow metadata DB | 0.25 to 0.5 GB | |
@@ -146,13 +166,26 @@ Spark master, Spark worker, Redis, plus overhead) budgets to roughly 4.1 GB at t
 8.5 GB at the high end. It fits only if the Spark worker is held to 2 to 3 GB. The `all`
 profile does not fit and will not be run on this machine.
 
+Measured in Phase 1A: Compose limits sum to 5.4 GiB of the available 7.75 GiB. Actual idle
+usage across the five services is about 1.2 GiB. Idle is not load, so these figures will be
+retaken under the Phase 21 benchmark. Evidence: `docs/evidence/phase1a/smoke_and_stats.txt`.
+
 ## Storage paths
 
+Bind mounts from the repo, all gitignored. Paths inside the Spark containers are stable so job
+code does not depend on host layout.
+
 ```text
-local Delta root:
-local Spark checkpoint root:
-dataset root:
+local Delta root:           ./data/delta       -> /opt/spark/project/data/delta
+local Spark checkpoint root: ./data/checkpoints -> /opt/spark/project/data/checkpoints
+dataset root:               ./data/raw
+job code:                   ./streaming        -> /opt/spark/project/streaming
+                            ./batch            -> /opt/spark/project/batch
+                            ./scripts          -> /opt/spark/project/scripts
 ```
+
+Kafka and Redis use named Docker volumes (`kafka-data`, `redis-data`) rather than bind mounts,
+so `make down` preserves them and only `make clean` removes them.
 
 ## Azure
 

@@ -1,0 +1,148 @@
+name: ${COMPOSE_PROJECT_NAME:-ecomm-rec}
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.9.2}
+    container_name: kafka
+    profiles: [streaming, all]
+    ports:
+      - "${KAFKA_HOST_PORT:-9092}:9092"
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://kafka:29092,CONTROLLER://kafka:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_HOST_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: ${KAFKA_NUM_PARTITIONS:-3}
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx1g"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "kafka:29092"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.9.2}
+    container_name: schema-registry
+    profiles: [streaming, all]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${SCHEMA_REGISTRY_HOST_PORT:-8081}:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+      SCHEMA_REGISTRY_HEAP_OPTS: "-Xms256m -Xmx512m"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  spark-master:
+    image: apache/spark:${SPARK_VERSION:-3.5.7}-python3
+    container_name: spark-master
+    profiles: [streaming, all]
+    user: root
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master --port 7077 --webui-port 8080
+    ports:
+      - "${SPARK_MASTER_UI_PORT:-8080}:8080"
+      - "${SPARK_MASTER_PORT:-7077}:7077"
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+    volumes:
+      - ./streaming:/opt/spark/project/streaming
+      - ./batch:/opt/spark/project/batch
+      - ./scripts:/opt/spark/project/scripts
+      - ./data/delta:/opt/spark/project/data/delta
+      - ./data/checkpoints:/opt/spark/project/data/checkpoints
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  spark-worker:
+    image: apache/spark:${SPARK_VERSION:-3.5.7}-python3
+    container_name: spark-worker
+    profiles: [streaming, all]
+    user: root
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077 --webui-port 8081
+    ports:
+      - "${SPARK_WORKER_UI_PORT:-8082}:8081"
+    environment:
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-4}
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2g}
+      SPARK_NO_DAEMONIZE: "true"
+    volumes:
+      - ./streaming:/opt/spark/project/streaming
+      - ./batch:/opt/spark/project/batch
+      - ./scripts:/opt/spark/project/scripts
+      - ./data/delta:/opt/spark/project/data/delta
+      - ./data/checkpoints:/opt/spark/project/data/checkpoints
+    deploy:
+      resources:
+        limits:
+          memory: 2560m
+
+  redis:
+    image: redis:${REDIS_VERSION:-7.4-alpine}
+    container_name: redis
+    profiles: [streaming, all]
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --maxmemory 200mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+volumes:
+  kafka-data:
+  redis-data:
