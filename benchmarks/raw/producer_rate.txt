@@ -1,0 +1,24 @@
+producer rate control check
+date: 2026-09-15T18:35:00Z
+limit: 30000 events per run
+note: producer side only, no consumer, no spark. Not an end to end throughput number.
+
+=== requested 500 events/sec ===
+emitted 30000 records in 60.00s
+effective rate 500.0 events/sec
+
+=== requested 2000 events/sec ===
+emitted 30000 records in 15.00s
+effective rate 1999.9 events/sec
+
+=== requested 10000 events/sec ===
+emitted 30000 records in 3.00s
+effective rate 9992.7 events/sec
+
+=== unthrottled ceiling, rate set far above capability ===
+emitted 30000 records in 0.56s
+effective rate 53806.8 events/sec
+
+=== burst mode, 1000 base with 8000 bursts every 5s for 2s ===
+emitted 30000 records in 16.08s
+effective rate 1865.5 events/sec

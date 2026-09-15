@@ -1,0 +1,49 @@
+{
+  "determinism": {
+    "records": 20000,
+    "identical_ignoring_ingestion_time": true,
+    "ingestion_timestamp_actually_varies": true
+  },
+  "determinism_with_injections": {
+    "records": 20380,
+    "identical_ignoring_ingestion_time": true
+  },
+  "injection_effects": {
+    "baseline_records": 20000,
+    "baseline_out_of_order_pairs": 0,
+    "duplicate_ids_when_injecting_2pct": 399,
+    "malformed_records_when_injecting_5pct": 675,
+    "out_of_order_pairs_when_delaying_10pct": 1686
+  },
+  "partitioning": {
+    "records_read": 20000,
+    "distinct_visitor_keys": 11420,
+    "keys_spanning_multiple_partitions": 0,
+    "per_topic": {
+      "item_view": {
+        "partitions": 3,
+        "records": 19434
+      },
+      "add_to_cart": {
+        "partitions": 3,
+        "records": 455
+      },
+      "transaction": {
+        "partitions": 3,
+        "records": 111
+      }
+    },
+    "examples_of_split_keys": {}
+  },
+  "checks": {
+    "replay_is_deterministic": true,
+    "ingestion_timestamp_is_wall_clock": true,
+    "injections_are_deterministic": true,
+    "baseline_stream_is_time_ordered": true,
+    "duplicate_injection_creates_duplicates": true,
+    "malformed_injection_creates_bad_records": true,
+    "delay_injection_creates_out_of_order": true,
+    "every_visitor_on_one_partition": true
+  },
+  "passed": true
+}

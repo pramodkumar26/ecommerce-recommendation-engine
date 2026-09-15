@@ -3,7 +3,7 @@ PY := .venv/bin/python
 PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer clean
 
 help:
 	@echo "setup"
@@ -24,6 +24,12 @@ help:
 	@echo "dataset"
 	@echo "  make profile        profile the retailrocket source files"
 	@echo "  make verify-event-id  prove event ids are reproducible"
+	@echo ""
+	@echo "kafka"
+	@echo "  make topics         create project topics from kafka/topics/topics.yml"
+	@echo "  make simulate       replay events into kafka (LIMIT=, RATE=)"
+	@echo "  make verify-replay  phase 3 determinism and partitioning checks"
+	@echo "  make bench-producer producer rate control check"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -78,6 +84,18 @@ profile:
 
 verify-event-id:
 	$(PY) scripts/verify_event_id.py
+
+topics:
+	$(PY) kafka/create_topics.py
+
+simulate: topics
+	$(PY) producer/simulator.py --limit $(or $(LIMIT),20000) --rate $(or $(RATE),2000)
+
+verify-replay: topics
+	$(PY) scripts/verify_replay.py
+
+bench-producer: topics
+	./scripts/benchmark_producer.sh
 
 clean:
 	docker compose --profile streaming down -v

@@ -1,0 +1,40 @@
+# Topic definitions. Declared here rather than created ad hoc, because
+# KAFKA_AUTO_CREATE_TOPICS_ENABLE is false and a typo should be an error, not a new topic.
+#
+# partitions: 3 across the board. The broker is single node so this is about parallelism and
+# key distribution, not durability. Three lets up to three consumers share a topic and is
+# enough to make partition behaviour visible in tests without inflating local overhead.
+#
+# replication_factor: 1 is forced by having one broker. Production would use 3.
+#
+# retention_ms: 7 days on behavioral topics so a replay test can rewind across several work
+# sessions. The DLQ keeps 30 days because bad records are evidence and get inspected later.
+
+topics:
+  - name: item_view
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "604800000"
+      cleanup.policy: delete
+
+  - name: add_to_cart
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "604800000"
+      cleanup.policy: delete
+
+  - name: transaction
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "604800000"
+      cleanup.policy: delete
+
+  - name: clickstream_dlq
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "2592000000"
+      cleanup.policy: delete

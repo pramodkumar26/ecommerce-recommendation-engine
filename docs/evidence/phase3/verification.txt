@@ -1,0 +1,28 @@
+Phase 3 verification summary
+date: 2026-09-15T18:39:01Z
+
+=== topic record counts and partition balance ===
+item_view            164704 records  per-partition [53420, 55859, 55425]
+add_to_cart            4180 records  per-partition [1566, 1363, 1251]
+transaction            1116 records  per-partition [434, 380, 302]
+clickstream_dlq           0 records  per-partition [0, 0, 0]
+
+=== verification checks ===
+  ok   replay_is_deterministic
+  ok   ingestion_timestamp_is_wall_clock
+  ok   injections_are_deterministic
+  ok   baseline_stream_is_time_ordered
+  ok   duplicate_injection_creates_duplicates
+  ok   malformed_injection_creates_bad_records
+  ok   delay_injection_creates_out_of_order
+  ok   every_visitor_on_one_partition
+
+passed: True
+
+=== resource usage under load ===
+NAME              MEM USAGE / LIMIT   MEM %
+kafka             831.1MiB / 1.5GiB   54.11%
+schema-registry   350.4MiB / 768MiB   45.63%
+spark-master      270.6MiB / 512MiB   52.86%
+spark-worker      210.2MiB / 2.5GiB   8.21%
+redis             39.14MiB / 256MiB   15.29%

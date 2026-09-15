@@ -7,16 +7,56 @@ the log at the bottom.
 ## Current state
 
 ```text
-phase:                Phase 2 complete
-last task completed:  Dataset profiled, deterministic event id built and verified.
-branch / commit:      main, Phase 2 changes not yet committed
-services running:     none, Docker not needed for this phase
-services stopped:     streaming profile down, volumes kept
-next command to run:  make profile   (reproduces every Phase 2 number)
+phase:                Phase 3 complete
+last task completed:  Kafka topics and deterministic event simulator built and verified.
+branch / commit:      main, Phase 3 changes not yet committed
+services running:     streaming profile up (kafka, schema-registry, spark, redis)
+services stopped:     none
+next command to run:  make verify-replay   (reproduces every Phase 3 check)
 unresolved error:     none
-next test:            Phase 3, deterministic replay of a bounded range twice
+next test:            Phase 4, compatible v2 event accepted, malformed routed to DLQ
 Azure left alive:     none, no Azure resources provisioned yet
 ```
+
+## Phase 3 result
+
+Definition of done, all met:
+
+- simulator replays a bounded source range twice deterministically, with and without injections
+- partitioning verified: 11,420 distinct visitor keys, zero spanning more than one partition
+- producer rate is configurable and accurate
+
+Evidence in `docs/evidence/phase3/` and `benchmarks/raw/replay_verification.json`,
+`benchmarks/raw/producer_rate.txt`. Four ledger rows added, all `pending` until commit.
+
+### What was built
+
+`kafka/topics/topics.yml` declares four topics, `kafka/create_topics.py` creates them
+idempotently. `producer/simulator.py` replays events with rate control, bursts, and seeded
+injection of duplicates, malformed records, and delays. `scripts/verify_replay.py` runs the
+eight Phase 3 checks. `scripts/benchmark_producer.sh` checks rate control.
+
+Topic design and the payload contract are documented in `docs/data_contracts.md`.
+
+### Two design decisions worth remembering
+
+The source file is not sorted by timestamp. 1,377,377 adjacent pairs are out of order, roughly
+half the file. The simulator sorts by `(event_timestamp, source_row_number)` before replaying,
+so the baseline stream is strictly ordered and out-of-order arrival is injected deliberately at
+a known rate. If the input were already jumbled there would be no way to tell a working
+watermark from a favourably shuffled input.
+
+Delay injection shifts an event by a number of positions rather than by wall-clock time. That
+keeps emitted order reproducible regardless of machine speed, which is what makes the
+determinism guarantee hold.
+
+### Measured
+
+Rate control tracks accurately: 500 requested gives 500.0, 2000 gives 1999.9, 10000 gives
+9992.7 events/sec. Unthrottled producer-only ceiling is 53,807 events/sec with nothing
+consuming, which is recorded as PRODUCER-CEILING-001 and explicitly not an end-to-end number.
+
+Partition balance on `item_view` after 164,704 records: 53,420 / 55,859 / 55,425.
 
 ## Phase order change
 
@@ -30,7 +70,7 @@ Nothing before Phase 7 depends on Azure, so work continues locally through Phase
 Phase 1B slots in whenever access is resolved. Fallback if OIT declines: a personal Microsoft
 account at pay-as-you-go, roughly 5 USD a month.
 
-## Phase 2 result
+## Phase 2 result (previous)
 
 Definition of done, both met:
 
@@ -72,7 +112,7 @@ silently drop 460 real records.
 Verified with two full passes producing an identical digest, zero collisions across 2,756,101
 rows, plus nine unit checks.
 
-## Phase 1A result (previous session)
+## Phase 1A result (earlier)
 
 Definition of done, all met:
 
@@ -120,16 +160,16 @@ answer is a custom image.
 
 ## Next up
 
-Phase 3, Kafka producer and topic design. Three behavioral topics (`item_view`, `add_to_cart`,
-`transaction`) plus `clickstream_dlq`, partitioned by visitor id, with a configurable replay
-rate, burst mode, a fixed random seed, and injectable duplicates, malformed messages, and
-delayed events.
+Phase 4, Avro, Schema Registry, and the DLQ. Replace the JSON payload with a registered Avro
+schema, create a v2 with optional `session_id` and `device_type`, test backward and forward
+compatibility, and route malformed records to `clickstream_dlq` with error metadata while valid
+traffic keeps flowing.
 
-Phase 3 is done when the simulator can replay a bounded source range twice deterministically,
-partitioning is verified, and the producer rate is configurable.
+Phase 4 is done when a compatible v2 event is accepted, an incompatible or malformed record is
+rejected or routed correctly, and the valid stream continues while bad events exist.
 
-The event id from Phase 2 is what makes deterministic replay testable, so that dependency is
-already satisfied.
+The simulator already injects three malformed modes (`missing_field`, `wrong_type`,
+`truncated_json`) with a fixed seed, so the DLQ has deterministic input to test against.
 
 Estimate: 2 days.
 
@@ -147,9 +187,8 @@ Eight rows written in Phase 2: DATASET-EVENTS-001, DATASET-VISITORS-001, DATASET
 DATASET-TRANSACTIONS-001, DATASET-SPAN-001, DATASET-PITJOIN-001, DATASET-ELIGIBLE-001, and
 IDENTITY-REPRO-001.
 
-Every one currently has `git_commit: pending`. The measurements are real but the commit
-containing the producing code has not been made yet. Fill the SHA in before any of these numbers
-is used outside this repository.
+All eight are pinned to commit `8dbe1f4a997b584b29120dfefcd5706e35a9746d` and measured against
+the source file checksums recorded in the ledger. They are safe to quote.
 
 ## Session log
 

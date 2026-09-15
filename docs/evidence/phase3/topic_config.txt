@@ -1,0 +1,28 @@
+exists   item_view  partitions=3 rf=1
+exists   add_to_cart  partitions=3 rf=1
+exists   transaction  partitions=3 rf=1
+exists   clickstream_dlq  partitions=3 rf=1
+
+nothing to create
+
+final state
+  ok   item_view          partitions=3 rf=1 retention=7d cleanup=delete
+  ok   add_to_cart        partitions=3 rf=1 retention=7d cleanup=delete
+  ok   transaction        partitions=3 rf=1 retention=7d cleanup=delete
+  ok   clickstream_dlq    partitions=3 rf=1 retention=30d cleanup=delete
+Topic: item_view	TopicId: zOAR8vkmT7iC1F4cUxTfDw	PartitionCount: 3	ReplicationFactor: 1	Configs: cleanup.policy=delete,retention.ms=604800000
+	Topic: item_view	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: item_view	Partition: 1	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: item_view	Partition: 2	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+Topic: add_to_cart	TopicId: TvUiUHmHTROACuW0hGiHNw	PartitionCount: 3	ReplicationFactor: 1	Configs: cleanup.policy=delete,retention.ms=604800000
+	Topic: add_to_cart	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: add_to_cart	Partition: 1	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: add_to_cart	Partition: 2	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+Topic: transaction	TopicId: BoGGr41STO-27-LF0p8bnQ	PartitionCount: 3	ReplicationFactor: 1	Configs: cleanup.policy=delete,retention.ms=604800000
+	Topic: transaction	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: transaction	Partition: 1	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: transaction	Partition: 2	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+Topic: clickstream_dlq	TopicId: V_7-DofkR32dYanL1ZCWyg	PartitionCount: 3	ReplicationFactor: 1	Configs: cleanup.policy=delete,retention.ms=2592000000
+	Topic: clickstream_dlq	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: clickstream_dlq	Partition: 1	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 
+	Topic: clickstream_dlq	Partition: 2	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr: 

@@ -50,17 +50,24 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 
 | metric_id | metric | value | date | commit | evidence |
 |---|---|---|---:|---|---|
-| DATASET-EVENTS-001 | total source events | 2,756,101 | 2026-09-15 | pending | `dataset_profile.json` |
-| DATASET-VISITORS-001 | unique visitors | 1,407,580 | 2026-09-15 | pending | `dataset_profile.json` |
-| DATASET-ITEMS-001 | unique items in events | 235,061 | 2026-09-15 | pending | `dataset_profile.json` |
-| DATASET-TRANSACTIONS-001 | transaction events | 22,457 | 2026-09-15 | pending | `dataset_profile.json` |
-| DATASET-SPAN-001 | source time span | 138.0 days | 2026-09-15 | pending | `dataset_profile.json` |
-| DATASET-PITJOIN-001 | point-in-time join miss rate | 14.27% | 2026-09-15 | pending | `dataset_joins.json` |
-| DATASET-ELIGIBLE-001 | visitors with 5+ interactions | 81,620 | 2026-09-15 | pending | `dataset_joins.json` |
-| IDENTITY-REPRO-001 | event id collisions over full source | 0 of 2,756,101 | 2026-09-15 | pending | `event_id_reproducibility.json` |
+| DATASET-EVENTS-001 | total source events | 2,756,101 | 2026-09-15 | `8dbe1f4` | `dataset_profile.json` |
+| DATASET-VISITORS-001 | unique visitors | 1,407,580 | 2026-09-15 | `8dbe1f4` | `dataset_profile.json` |
+| DATASET-ITEMS-001 | unique items in events | 235,061 | 2026-09-15 | `8dbe1f4` | `dataset_profile.json` |
+| DATASET-TRANSACTIONS-001 | transaction events | 22,457 | 2026-09-15 | `8dbe1f4` | `dataset_profile.json` |
+| DATASET-SPAN-001 | source time span | 138.0 days | 2026-09-15 | `8dbe1f4` | `dataset_profile.json` |
+| DATASET-PITJOIN-001 | point-in-time join miss rate | 14.27% | 2026-09-15 | `8dbe1f4` | `dataset_joins.json` |
+| DATASET-ELIGIBLE-001 | visitors with 5+ interactions | 81,620 | 2026-09-15 | `8dbe1f4` | `dataset_joins.json` |
+| IDENTITY-REPRO-001 | event id collisions over full source | 0 of 2,756,101 | 2026-09-15 | `8dbe1f4` | `event_id_reproducibility.json` |
+| REPLAY-DETERMINISM-001 | bounded replay identical across two runs | 20,000 records, identical | 2026-09-15 | pending | `replay_verification.json` |
+| REPLAY-PARTITION-001 | visitor keys spanning multiple partitions | 0 of 11,420 | 2026-09-15 | pending | `replay_verification.json` |
+| PRODUCER-RATECTL-001 | rate control accuracy at 500/2000/10000 eps | 500.0 / 1999.9 / 9992.7 | 2026-09-15 | pending | `producer_rate.txt` |
+| PRODUCER-CEILING-001 | unthrottled producer-only emit rate | 53,807 events/sec | 2026-09-15 | pending | `producer_rate.txt` |
 
-`pending` means the measurement is real but the commit that contains the producing code has not
-been made yet. Fill each in before any of these numbers is used outside this repository.
+The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
+`8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
+
+The four Phase 3 rows show `pending` because the commit containing the simulator has not been
+made yet. Fill them in before quoting those numbers anywhere.
 
 ## Records
 
@@ -71,7 +78,7 @@ metric_id: DATASET-EVENTS-001
 metric: total rows in events.csv
 value: 2,756,101
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source, events.csv sha256 3745aa83...
 command / test: scripts/profile_dataset.py
@@ -88,7 +95,7 @@ metric_id: DATASET-VISITORS-001
 metric: unique visitorid values in events.csv
 value: 1,407,580
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source
 command / test: scripts/profile_dataset.py
@@ -105,7 +112,7 @@ metric_id: DATASET-ITEMS-001
 metric: unique itemid values in events.csv
 value: 235,061
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source
 command / test: scripts/profile_dataset.py
@@ -122,7 +129,7 @@ metric_id: DATASET-TRANSACTIONS-001
 metric: transaction events in events.csv
 value: 22,457
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source
 command / test: scripts/profile_dataset.py
@@ -140,7 +147,7 @@ metric_id: DATASET-SPAN-001
 metric: elapsed time covered by events.csv
 value: 138.0 days, 2015-05-03T03:00:04Z to 2015-09-18T02:59:47Z
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source
 command / test: scripts/profile_dataset.py
@@ -156,7 +163,7 @@ metric_id: DATASET-PITJOIN-001
 metric: share of events with no item property at or before the event timestamp
 value: 14.27% (393,198 of 2,756,101)
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source, events joined against both item_properties parts
 command / test: scripts/profile_joins.py
@@ -175,7 +182,7 @@ metric_id: DATASET-ELIGIBLE-001
 metric: visitors with at least 5 interactions
 value: 81,620 of 1,407,580 (5.80%)
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full source
 command / test: scripts/profile_joins.py
@@ -193,7 +200,7 @@ metric_id: IDENTITY-REPRO-001
 metric: deterministic event id collisions and cross-run stability
 value: 0 collisions over 2,756,101 rows, identical digest across two independent passes
 date: 2026-09-15
-git_commit: pending
+git_commit: 8dbe1f4a997b584b29120dfefcd5706e35a9746d
 environment: ENV-LOCAL-HOST
 dataset slice: full events.csv
 command / test: scripts/verify_event_id.py
@@ -202,4 +209,77 @@ evidence: benchmarks/raw/event_id_reproducibility.json
 notes: both passes produced digest 16a58583137991e1b0895a684460fea2ceab428d5a78616b07d13e2f73ad5561.
        Nine unit checks also pass. Source position is in the hash so the 460 byte-identical
        source rows remain distinct records.
+```
+
+### REPLAY-DETERMINISM-001
+
+```text
+metric_id: REPLAY-DETERMINISM-001
+metric: byte-identical replay of a bounded range across two independent runs
+value: 20,000 records identical, ignoring ingestion_timestamp
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: first 20,000 events after sorting by (event_timestamp, source_row_number)
+command / test: scripts/verify_replay.py
+config: --seed 42, dry-run mode, compared with and without injections at 2% duplicate,
+        1% malformed, 5% delayed
+evidence: benchmarks/raw/replay_verification.json
+notes: ingestion_timestamp is excluded from the comparison because it is wall clock, and the
+       test separately asserts that it does vary between runs. Injection decisions come from
+       the seeded RNG up front, and delays shift by position rather than wall-clock time, so
+       emitted order does not depend on machine speed.
+```
+
+### REPLAY-PARTITION-001
+
+```text
+metric_id: REPLAY-PARTITION-001
+metric: visitor keys observed on more than one Kafka partition
+value: 0 of 11,420 distinct visitor keys
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 20,000 events across item_view, add_to_cart, transaction
+command / test: scripts/verify_replay.py
+config: 3 partitions per topic, key = visitor_id as UTF-8 string, default partitioner
+evidence: benchmarks/raw/replay_verification.json
+notes: this is the property per-visitor session logic depends on in Phases 5, 6, and 11.
+       Kafka guarantees order within a partition only.
+```
+
+### PRODUCER-RATECTL-001
+
+```text
+metric_id: PRODUCER-RATECTL-001
+metric: achieved rate versus requested rate
+value: requested 500 -> 500.0, requested 2000 -> 1999.9, requested 10000 -> 9992.7 events/sec
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 30,000 events per run
+command / test: scripts/benchmark_producer.sh
+config: single producer process, acks=all, idempotence on, snappy, linger.ms=20
+evidence: benchmarks/raw/producer_rate.txt
+notes: confirms --rate is honoured, which matters because Phase 21 load tests depend on being
+       able to hold a chosen rate.
+```
+
+### PRODUCER-CEILING-001
+
+```text
+metric_id: PRODUCER-CEILING-001
+metric: unthrottled emit rate, producer side only
+value: 53,807 events/sec
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 30,000 events
+command / test: scripts/benchmark_producer.sh with --rate 1000000
+config: single producer process, no consumer running, no Spark running
+evidence: benchmarks/raw/producer_rate.txt
+notes: NOT an end-to-end throughput number and must never be quoted as one. Nothing is
+       consuming, nothing is processing, and no Delta write is involved. The end-to-end
+       figure comes from Phase 21 and will be lower. This row exists to show the producer is
+       not the bottleneck when Phase 5 measures the stream.
 ```
