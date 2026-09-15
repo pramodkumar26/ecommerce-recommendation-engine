@@ -1,0 +1,68 @@
+{
+  "generated_utc": "2026-09-15T17:27:59.114194+00:00",
+  "property_timeline": {
+    "distinct_timestamps": 18,
+    "first": "2015-05-10T03:00:00+00:00",
+    "last": "2015-09-13T03:00:00+00:00",
+    "gap_sizes_days": [
+      7.0,
+      14.0
+    ],
+    "interpretation": "discrete snapshots"
+  },
+  "point_in_time_join": {
+    "total_events": 2756101,
+    "events_before_first_property_snapshot": 137193,
+    "events_after_last_property_snapshot": 78581,
+    "events_whose_item_has_no_property_record": 255585,
+    "events_before_their_items_first_property": 137613,
+    "events_with_a_valid_point_in_time_property": 2362903,
+    "join_miss_rate_pct": 14.266
+  },
+  "item_coverage": {
+    "distinct_items_in_events": 235061,
+    "distinct_items_in_properties": 417053,
+    "event_items_with_no_property_record": 49815,
+    "event_items_covered_pct": 78.808
+  },
+  "repeat_interactions": {
+    "distinct_visitor_item_pairs": 2145179,
+    "pairs_seen_more_than_once": 333038,
+    "repeat_pair_pct": 15.525,
+    "max_interactions_on_one_pair": 308
+  },
+  "transaction_reality": {
+    "transaction_events": 22457,
+    "unique_transaction_ids": 17672,
+    "items_per_transaction_mean": 1.271,
+    "visitors_who_ever_transacted": 11719,
+    "pct_of_all_visitors": 0.833
+  },
+  "evaluation_eligibility": {
+    "2": {
+      "visitors_with_min_history": 406020,
+      "also_have_a_transaction": 11649,
+      "also_have_cart_or_transaction": 36258
+    },
+    "3": {
+      "visitors_with_min_history": 200028,
+      "also_have_a_transaction": 11064,
+      "also_have_cart_or_transaction": 29401
+    },
+    "5": {
+      "visitors_with_min_history": 81620,
+      "also_have_a_transaction": 7610,
+      "also_have_cart_or_transaction": 18548
+    },
+    "10": {
+      "visitors_with_min_history": 23241,
+      "also_have_a_transaction": 3790,
+      "also_have_cart_or_transaction": 8196
+    },
+    "20": {
+      "visitors_with_min_history": 6610,
+      "also_have_a_transaction": 1624,
+      "also_have_cart_or_transaction": 3136
+    }
+  }
+}

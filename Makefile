@@ -3,7 +3,7 @@ PY := .venv/bin/python
 PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id clean
 
 help:
 	@echo "setup"
@@ -20,6 +20,10 @@ help:
 	@echo ""
 	@echo "smoke tests"
 	@echo "  make smoke          run kafka, spark, and redis smoke tests"
+	@echo ""
+	@echo "dataset"
+	@echo "  make profile        profile the retailrocket source files"
+	@echo "  make verify-event-id  prove event ids are reproducible"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -66,6 +70,14 @@ smoke-redis:
 	$(PY) scripts/smoke_redis.py
 
 smoke: smoke-kafka smoke-spark smoke-redis
+
+profile:
+	$(PY) scripts/profile_dataset.py
+	$(PY) scripts/profile_joins.py
+	$(PY) scripts/verify_event_id.py
+
+verify-event-id:
+	$(PY) scripts/verify_event_id.py
 
 clean:
 	docker compose --profile streaming down -v

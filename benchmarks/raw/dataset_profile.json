@@ -1,0 +1,141 @@
+{
+  "generated_utc": "2026-09-15T17:27:35.304545+00:00",
+  "files": [
+    {
+      "file": "events.csv",
+      "bytes": 94237913,
+      "rows": 2756101,
+      "sha256": "3745aa83238b1e6d44d8fda209807899f420084398f94ddf745f3cbcfecbf9e7"
+    },
+    {
+      "file": "item_properties_part1.csv",
+      "bytes": 484315749,
+      "rows": 10999999,
+      "sha256": "30aad5aeca58b2dc27dcc73e1708565f5818e45adb3eb57401f91e87355b0b81"
+    },
+    {
+      "file": "item_properties_part2.csv",
+      "bytes": 408929907,
+      "rows": 9275903,
+      "sha256": "d5e7d1a91dc40f522aeb596b267e6c87d8aed689a7192d12369cfb165eb987e5"
+    },
+    {
+      "file": "category_tree.csv",
+      "bytes": 14454,
+      "rows": 1669,
+      "sha256": "94e865eb0a3d48cbbfe3b79079018dd92509315c88f5fd8d00d0b4b5af434f5b"
+    }
+  ],
+  "events": {
+    "total_rows": 2756101,
+    "unique_visitors": 1407580,
+    "unique_items": 235061,
+    "event_type_counts": {
+      "view": 2664312,
+      "addtocart": 69332,
+      "transaction": 22457
+    },
+    "duplicate_full_rows": 460,
+    "duplicate_business_key_rows": 460,
+    "transactions_missing_transactionid": 0,
+    "non_transactions_with_transactionid": 0,
+    "unique_transaction_ids": 17672,
+    "timestamp_min_ms": 1430622004384,
+    "timestamp_max_ms": 1442545187788,
+    "timestamp_min_iso": "2015-05-03T03:00:04.384000+00:00",
+    "timestamp_max_iso": "2015-09-18T02:59:47.788000+00:00",
+    "span_days": 138.0,
+    "visitors_by_interaction_count": {
+      "1": 1001560,
+      "2": 205992,
+      "3": 79612,
+      "5": 22967,
+      "10": 3659,
+      "20+": 6610
+    },
+    "visitors_with_at_least_n_interactions": {
+      "1": 1407580,
+      "2": 406020,
+      "3": 200028,
+      "5": 81620,
+      "10": 23241,
+      "20": 6610
+    },
+    "interactions_per_visitor_mean": 1.958,
+    "interactions_per_visitor_median": 1,
+    "interactions_per_visitor_p95": 5,
+    "interactions_per_visitor_max": 7757,
+    "items_by_event_type_unique": {
+      "view": 234838,
+      "addtocart": 23903,
+      "transaction": 12025
+    },
+    "visitors_by_event_type_unique": {
+      "view": 1404179,
+      "addtocart": 37722,
+      "transaction": 11719
+    }
+  },
+  "item_properties": {
+    "total_rows": 20275902,
+    "distinct_items_with_properties": 417053,
+    "distinct_property_names": 1104,
+    "updates_per_item_mean": 48.617,
+    "updates_per_item_median": 42,
+    "updates_per_item_p95": 110,
+    "updates_per_item_max": 468,
+    "timestamp_min_ms": 1431226800000,
+    "timestamp_max_ms": 1442113200000,
+    "timestamp_min_iso": "2015-05-10T03:00:00+00:00",
+    "timestamp_max_iso": "2015-09-13T03:00:00+00:00",
+    "categoryid_rows": 788214,
+    "items_with_categoryid": 417053,
+    "top_20_properties": {
+      "888": 3000398,
+      "790": 1790516,
+      "available": 1503639,
+      "categoryid": 788214,
+      "6": 631471,
+      "283": 597419,
+      "776": 574220,
+      "678": 481966,
+      "364": 476486,
+      "202": 448938,
+      "839": 417239,
+      "917": 417227,
+      "112": 417053,
+      "764": 417053,
+      "159": 417053,
+      "227": 347492,
+      "698": 289849,
+      "451": 264416,
+      "663": 240813,
+      "962": 239372
+    }
+  },
+  "category_tree": {
+    "total_rows": 1669,
+    "distinct_categories": 1669,
+    "root_categories": 25,
+    "parents_not_listed_as_category": 0
+  },
+  "cross_checks": {
+    "event_span_vs_property_span": {
+      "events": [
+        "2015-05-03T03:00:04.384000+00:00",
+        "2015-09-18T02:59:47.788000+00:00"
+      ],
+      "properties": [
+        "2015-05-10T03:00:00+00:00",
+        "2015-09-13T03:00:00+00:00"
+      ],
+      "properties_start_after_events_start": true
+    },
+    "items_in_events_vs_properties": {
+      "unique_items_in_events": 235061,
+      "items_with_any_property": 417053,
+      "items_with_categoryid": 417053
+    },
+    "categories": 1669
+  }
+}

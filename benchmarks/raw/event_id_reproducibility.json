@@ -1,0 +1,32 @@
+{
+  "generated_utc": "2026-09-15T17:29:34.100530+00:00",
+  "source_file": "events.csv",
+  "rows_processed": 2756101,
+  "unique_ids": 2756101,
+  "collisions": 0,
+  "run1_digest": "16a58583137991e1b0895a684460fea2ceab428d5a78616b07d13e2f73ad5561",
+  "run2_digest": "16a58583137991e1b0895a684460fea2ceab428d5a78616b07d13e2f73ad5561",
+  "sample_first_3": [
+    "36f547621a3fad177170c6c4506ca08d22f19da3cd4e4e38a221a57a75b0087d",
+    "0eba97ec7f109dbaa927bbdb09e258edfb2bfc4759a6e7327e5ef17748dc34c7",
+    "b3d6b7e0ab16dfa5c5cbe0e038280a69129c332f6238445a70a79d15e49575c9"
+  ],
+  "unit_checks": {
+    "stable_across_calls": true,
+    "nan_and_none_agree": true,
+    "float_and_int_tx_agree": true,
+    "row_number_changes_id": true,
+    "source_file_changes_id": true,
+    "event_type_changes_id": true,
+    "tx_presence_changes_id": true,
+    "normalize_nan": true,
+    "normalize_float": true
+  },
+  "checks": {
+    "same_row_count": true,
+    "identical_id_sequence": true,
+    "identical_set_digest": true,
+    "no_collisions": true
+  },
+  "passed": true
+}
