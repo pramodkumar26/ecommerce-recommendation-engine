@@ -107,18 +107,24 @@ Spark, and Delta JARs.
 | Component | Version | Pinned where | Notes |
 |---|---|---|---|
 | Java (host) | OpenJDK 17.0.20.1 | Homebrew `openjdk@17` | Spark 3.5 supports 8/11/17 |
-| Java (Spark image) | OpenJDK 17 | `apache/spark:3.5.7-python3` | matches host major version |
+| Java (Spark image) | OpenJDK 17 | `ecomm-rec/spark:3.5.7` | matches host major version |
 | Kafka | Confluent 7.9.2 | `.env`, `CONFLUENT_VERSION` | KRaft mode, no Zookeeper |
 | Schema Registry | Confluent 7.9.2 | `.env`, `CONFLUENT_VERSION` | same version as broker |
 | Spark | 3.5.7 | `.env`, `SPARK_VERSION` | `apache/spark:3.5.7-python3` |
 | Hadoop (bundled) | 3.3.4 | bundled in Spark 3.5.7 | drives the Phase 7 ABFS JAR choice |
-| Delta Lake | | | Phase 7 |
+| Delta Lake | 3.3.2 | `.env`, `SPARK_PACKAGES` | `io.delta:delta-spark_2.12:3.3.2` |
+| spark-sql-kafka-0-10 | 3.5.7 | `.env`, `SPARK_PACKAGES` | Scala 2.12 |
+| spark-avro | 3.5.7 | `.env`, `SPARK_PACKAGES` | Scala 2.12 |
+| kafka-clients | 3.4.1 | transitive | pulled by spark-sql-kafka |
+| commons-pool2 | 2.11.1 | transitive | |
+| delta-spark (python) | 3.3.2 | `Dockerfile.spark` | installed `--no-deps` |
+| redis (python) | 6.1.1 | `Dockerfile.spark` and `requirements.txt` | 6.1.1 is the last release for Python 3.8 |
 | hadoop-azure | | | Phase 7, must match Hadoop 3.3.4 |
 | azure-storage | | | Phase 7 |
 | Redis | 7.4-alpine | `.env`, `REDIS_VERSION` | appendonly, 200 MB maxmemory |
 | Python (project venv) | 3.11.16 | `.venv`, Homebrew `python@3.11` | not the system 3.14.7, see above |
-| Python (Spark image) | 3.8.10 | `apache/spark:3.5.7-python3` | see Spark version note below |
-| Python packages | see `requirements.txt` | `requirements.txt` | confluent-kafka 2.12.0, redis 6.4.0 |
+| Python (Spark image) | 3.8.10 | `ecomm-rec/spark:3.5.7` | see Spark version note below |
+| Python packages | see `requirements.txt` | `requirements.txt` | confluent-kafka 2.12.0, redis 6.1.1, pandas 2.3.3 |
 
 ### Spark version choice
 
@@ -147,7 +153,7 @@ output once the streaming profile runs in Phase 1A.
 |---|---:|---:|---:|
 | Kafka | 0.75 to 1.5 GB | 1536 MB | 497 MiB |
 | Schema Registry | 0.5 to 0.8 GB | 768 MB | 306 MiB |
-| Spark master | 0.25 to 0.5 GB | 512 MB | 169 MiB |
+| Spark master | 0.25 to 0.5 GB | 1536 MB | 169 MiB idle |
 | Spark worker | 2 to 4 GB | 2560 MB | 239 MiB |
 | Redis | 0.1 to 0.25 GB | 256 MB | 20 MiB |
 | Airflow webserver / API | 0.3 to 0.6 GB | |
@@ -169,6 +175,58 @@ profile does not fit and will not be run on this machine.
 Measured in Phase 1A: Compose limits sum to 5.4 GiB of the available 7.75 GiB. Actual idle
 usage across the five services is about 1.2 GiB. Idle is not load, so these figures will be
 retaken under the Phase 21 benchmark. Evidence: `docs/evidence/phase1a/smoke_and_stats.txt`.
+
+## Spark connector chain
+
+Neither `spark-sql-kafka-0-10` nor `spark-avro` ships in `apache/spark:3.5.7-python3`. Only Avro
+core is present. Both are resolved through `--packages` from the coordinates in `SPARK_PACKAGES`.
+
+Resolved set, pinned by Spark 3.5.7 / Scala 2.12 / Hadoop 3.3.4:
+
+```text
+org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.7
+org.apache.spark:spark-avro_2.12:3.5.7
+io.delta:delta-spark_2.12:3.3.2
+  -> org.apache.spark:spark-token-provider-kafka-0-10_2.12:3.5.7
+  -> org.apache.kafka:kafka-clients:3.4.1
+  -> org.apache.hadoop:hadoop-client-api:3.3.4
+  -> org.apache.hadoop:hadoop-client-runtime:3.3.4
+  -> org.apache.commons:commons-pool2:2.11.1
+  -> io.delta:delta-storage:3.3.2
+  -> org.antlr:antlr4-runtime:4.9.3
+  -> org.lz4:lz4-java:1.8.0
+  -> org.xerial.snappy:snappy-java:1.1.10.5
+  -> org.slf4j:slf4j-api:2.0.7
+```
+
+The Ivy cache is bind-mounted at `./jars/ivy` -> `/root/.ivy2`, about 114 MB, so resolution
+happens once and no download occurs during a benchmark run. The directory is gitignored.
+
+Note the mount path. The containers run as root, so Ivy uses `/root/.ivy2` and mounting
+`/opt/spark/.ivy2` silently cached nothing.
+
+### Custom Spark image
+
+`Dockerfile.spark` adds `redis` and `delta-spark` on top of the official image, because
+`foreachBatch` executes inside the container and anything the driver imports must exist there.
+
+`delta-spark` is installed with `--no-deps`: its dependency list includes `pyspark`, and letting
+pip install a second PySpark over the one shipped in the image breaks the driver. The JVM side
+of Delta comes from the `--packages` coordinate.
+
+### How to submit
+
+Submit against the standalone cluster, never `local[*]`:
+
+```text
+--master spark://spark-master:7077 --driver-memory 1g --executor-memory 1g
+```
+
+Running `local[4] --driver-memory 2g` inside the spark-master container was measured taking
+over 90 seconds for a single 8,000 record micro-batch. The container had a 512 MB limit at the
+time, so the driver was thrashing against a cap a quarter of what was requested while the
+2.5 GB worker sat idle. The master limit is now 1536 MB because it hosts the client-mode
+driver.
 
 ## Storage paths
 

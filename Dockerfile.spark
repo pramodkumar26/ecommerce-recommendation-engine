@@ -1,0 +1,12 @@
+# Thin layer over the official Spark image. The base has no Python client libraries, and
+# foreachBatch runs inside this container, so anything the driver touches must live here.
+#
+# delta-spark is installed with --no-deps on purpose: its dependency list includes pyspark, and
+# letting pip install a second PySpark over the one shipped in the image would silently break
+# the driver. The JVM side of Delta comes from the --packages coordinate, not from pip.
+ARG SPARK_VERSION=3.5.7
+FROM apache/spark:${SPARK_VERSION}-python3
+
+USER root
+RUN pip install --no-cache-dir redis==6.1.1 \
+ && pip install --no-cache-dir --no-deps delta-spark==3.3.2 importlib-metadata==6.7.0

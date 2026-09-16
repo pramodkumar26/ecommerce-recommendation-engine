@@ -1,0 +1,39 @@
+Phase 5 verification summary
+
+expected_rows                                 50000
+bronze_rows                                   50000
+bronze_by_type                                {'view': 48350, 'addtocart': 1253, 'transaction': 397}
+expected_by_type                              {'view': 48350, 'addtocart': 1253, 'transaction': 397}
+bronze_partitions                             3
+undecodable_rows                              0
+expected_windows                              777
+emitted_windows                               777
+windows_not_yet_emitted                       0
+of_those_inside_watermark                     0
+of_those_outside_watermark                    0
+approx_distinct_windows_judged                422
+approx_distinct_mean_error_pct                0.2757
+approx_distinct_worst_error_pct               3.0612
+approx_distinct_worst_absolute_error          3
+redis_window_keys                             411
+passed                                        True
+
+redis latest: {"batch_id": "10", "window_start": "2015-05-05T19:40:00", "events": "21", "views": "20", "carts": "0", "transactions": "1"}
+
+count mismatches: []
+
+  ok   bronze_row_count_matches
+  ok   bronze_event_ids_unique
+  ok   bronze_event_type_counts_match
+  ok   bronze_event_time_range_matches
+  ok   bronze_partitioned_by_date
+  ok   no_undecodable_records
+  ok   no_unexpected_windows
+  ok   window_counts_exact
+  ok   unemitted_windows_all_inside_watermark
+  ok   exact_distincts_match_source
+  ok   approx_distinct_within_5pct_on_large_windows
+  ok   approx_distinct_absolute_error_small
+  ok   redis_received_metrics
+
+passed: True

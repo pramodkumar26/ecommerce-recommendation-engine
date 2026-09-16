@@ -62,10 +62,17 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 | REPLAY-PARTITION-001 | visitor keys spanning multiple partitions | 0 of 11,420 | 2026-09-15 | `97c267c` | `replay_verification.json` |
 | PRODUCER-RATECTL-001 | rate control accuracy at 500/2000/10000 eps | 500.0 / 1999.9 / 9992.7 | 2026-09-15 | `97c267c` | `producer_rate.txt` |
 | PRODUCER-CEILING-001 | unthrottled producer-only emit rate | 53,807 events/sec | 2026-09-15 | `97c267c` | `producer_rate.txt` |
-| SCHEMA-COMPAT-001 | v2 accepted, v3 rejected under BACKWARD | both as expected | 2026-09-15 | pending | `schema_dlq_verification.json` |
-| SCHEMA-RESOLUTION-001 | v2 record read by a v1 reader | decodes, 2 unknown fields dropped | 2026-09-15 | pending | `schema_dlq_verification.json` |
-| DQ-DLQROUTE-001 | malformed records routed to DLQ | 960 of 960 on the wire | 2026-09-15 | pending | `schema_dlq_verification.json` |
-| DQ-NOLOSS-001 | valid plus DLQ equals consumed | 19,462 + 960 = 20,422 | 2026-09-15 | pending | `dlq_router_stats.json` |
+| SCHEMA-COMPAT-001 | v2 accepted, v3 rejected under BACKWARD | both as expected | 2026-09-15 | `a36dd19` | `schema_dlq_verification.json` |
+| SCHEMA-RESOLUTION-001 | v2 record read by a v1 reader | decodes, 2 unknown fields dropped | 2026-09-15 | `a36dd19` | `schema_dlq_verification.json` |
+| DQ-DLQROUTE-001 | malformed records routed to DLQ | 960 of 960 on the wire | 2026-09-15 | `a36dd19` | `schema_dlq_verification.json` |
+| DQ-NOLOSS-001 | valid plus DLQ equals consumed | 19,462 + 960 = 20,422 | 2026-09-15 | `a36dd19` | `dlq_router_stats.json` |
+| STREAM-BRONZE-001 | events reaching Bronze from Kafka | 50,000 of 50,000, all ids unique | 2026-09-15 | pending | `streaming_verification.json` |
+| STREAM-WINDOW-001 | 5 minute event-time window counts vs source | 777 of 777 windows exact | 2026-09-15 | pending | `streaming_verification.json` |
+| STREAM-APPROX-001 | HyperLogLog distinct visitor accuracy | 0.28% mean, 3.06% worst | 2026-09-15 | pending | `streaming_verification.json` |
+| STREAM-LATENESS-001 | measured event-time lateness distribution | p50 104 min, p95 845 min, max 959 min | 2026-09-15 | pending | `lateness_distribution.json` |
+| RECOVERY-DEDUP-001 | injected duplicates removed from the aggregate | 2,389 of 2,389, 777 windows exact | 2026-09-15 | pending | `duplicate_test.json` |
+| RECOVERY-LATE-001 | events dropped by watermark, two settings | 0.56% at 24h, 3.45% at 1 min | 2026-09-15 | pending | `late_event_test.json` |
+| RECOVERY-RESTART-001 | checkpoint restart, loss and inflation | 0 lost, 0 duplicated, 50,000 of 50,000 | 2026-09-15 | pending | `restart_test.json` |
 
 The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 `8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
@@ -73,8 +80,10 @@ The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 The four `REPLAY-*` and `PRODUCER-*` rows were produced by the code at commit
 `97c267c61e77380d7a4fc6c8914366bcc50e7dfb`.
 
-The four Phase 4 rows show `pending` until the commit containing the schemas and DLQ router is
-made.
+The four `SCHEMA-*` and `DQ-*` rows were produced by the code at commit `a36dd199b38406aef7e381ba220a3df9fd0ded9c`.
+
+The Phase 5 and Phase 6 rows show `pending` until the commit containing the streaming job and
+the reliability tests is made.
 
 ## Records
 
@@ -298,7 +307,7 @@ metric_id: SCHEMA-COMPAT-001
 metric: Schema Registry compatibility verdicts under BACKWARD
 value: v2 compatible, v3 rejected
 date: 2026-09-15
-git_commit: pending
+git_commit: a36dd199b38406aef7e381ba220a3df9fd0ded9c
 environment: ENV-LOCAL-DOCKER
 dataset slice: n/a, schema level check
 command / test: scripts/verify_schema_dlq.py
@@ -317,7 +326,7 @@ metric_id: SCHEMA-RESOLUTION-001
 metric: a v1 reader decoding a record written with v2
 value: decoded successfully, 10 fields, session_id and device_type dropped
 date: 2026-09-15
-git_commit: pending
+git_commit: a36dd199b38406aef7e381ba220a3df9fd0ded9c
 environment: ENV-LOCAL-DOCKER
 dataset slice: one synthetic v2 record
 command / test: scripts/verify_schema_dlq.py
@@ -334,7 +343,7 @@ metric_id: DQ-DLQROUTE-001
 metric: malformed records correctly routed to clickstream_dlq
 value: 960 of 960 malformed records on the wire, 4.70% DLQ rate
 date: 2026-09-15
-git_commit: pending
+git_commit: a36dd199b38406aef7e381ba220a3df9fd0ded9c
 environment: ENV-LOCAL-DOCKER
 dataset slice: 20,422 records, 20,000 source events, seed 42
 command / test: scripts/verify_schema_dlq.py
@@ -353,7 +362,7 @@ metric_id: DQ-NOLOSS-001
 metric: conservation of records through the router
 value: 19,462 valid + 960 DLQ = 20,422 consumed
 date: 2026-09-15
-git_commit: pending
+git_commit: a36dd199b38406aef7e381ba220a3df9fd0ded9c
 environment: ENV-LOCAL-DOCKER
 dataset slice: same run as DQ-DLQROUTE-001
 command / test: scripts/verify_schema_dlq.py
@@ -362,4 +371,145 @@ evidence: benchmarks/raw/dlq_router_stats.json
 notes: the property this phase exists to prove. Every consumed record is either passed through
        or routed, never silently dropped, and the valid stream keeps flowing while bad records
        are present. Not a throughput measurement.
+```
+
+### STREAM-BRONZE-001
+
+```text
+metric_id: STREAM-BRONZE-001
+metric: events carried from Kafka into the Bronze Delta table
+value: 50,000 of 50,000, 50,000 distinct event ids, 0 undecodable
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: first 50,000 events after sorting by (event_timestamp, source_row_number)
+command / test: scripts/verify_streaming.py
+config: standalone cluster, driver 1g, executor 1g, 4 cores, maxOffsetsPerTrigger 5000,
+        Spark 3.5.7, Delta 3.3.2, local Delta volume
+evidence: benchmarks/raw/streaming_verification.json
+notes: event type counts, event time range, and date partitioning all match the source, checked
+       independently in pandas rather than by Spark. Not a throughput measurement.
+```
+
+### STREAM-WINDOW-001
+
+```text
+metric_id: STREAM-WINDOW-001
+metric: 5 minute event-time window counts against independently computed expectations
+value: 777 of 777 windows exact, 0 mismatches across events, views, carts, transactions
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: same 50,000 event fixture
+command / test: scripts/verify_streaming.py
+config: update output mode, Delta MERGE upsert on window_start, no watermark
+evidence: benchmarks/raw/streaming_verification.json
+notes: expectations computed with pandas from events.csv, so Spark is not grading itself.
+       Append mode was measured first and dropped most of the later windows, some holding 120
+       Bronze events down to 1 or 2, because replay compresses 138 days into minutes and the
+       watermark outruns records still arriving on other partitions. Update mode plus MERGE
+       counts every record. Watermark policy is Phase 6.
+```
+
+### STREAM-APPROX-001
+
+```text
+metric_id: STREAM-APPROX-001
+metric: approx_count_distinct error for unique visitors per window
+value: 0.28% mean, 3.06% worst relative error, 3 worst absolute error
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 422 windows with 50 or more distinct visitors, of 777 total
+command / test: scripts/verify_streaming.py
+config: approx_count_distinct with rsd 0.01, compared against exact countDistinct over Bronze
+evidence: benchmarks/raw/streaming_verification.json
+notes: exact countDistinct is rejected on a streaming aggregate because it needs unbounded
+       state, so the live metric is HyperLogLog. Relative error is judged only on windows with
+       50 or more distinct visitors, since a window with 10 distinct visitors estimated at 9 is
+       off by one record and scores a meaningless 10%. Absolute error is checked on all 777.
+```
+
+### STREAM-LATENESS-001
+
+```text
+metric_id: STREAM-LATENESS-001
+metric: how far behind the running maximum event time each record arrives
+value: p50 104 min, p90 737 min, p95 845 min, p99 916 min, max 959 min (16.0 h)
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 50,000 event fixture, modelled at 5,000 per trigger
+command / test: streaming/jobs/measure_lateness.py
+config: batch composition reconstructed from Bronze source_partition and source_offset
+evidence: benchmarks/raw/lateness_distribution.json
+notes: this is EVENT-TIME lateness created by replay compression, not network delay. 138 days
+       of 2015 are pushed through in minutes, so records legitimately sit hours behind the
+       running maximum. A live deployment would see seconds. Counterintuitively smaller batches
+       produce more lateness: p50 is 220 min at 1,000 per trigger and 0 at 20,000, because with
+       fewer larger batches most records have no preceding maximum to be late against. Nothing
+       exceeded 24 hours at any batch size, which is where the watermark default comes from.
+       The roadmap's suggested 10 minute development watermark would have dropped 73% of
+       records here.
+```
+
+### RECOVERY-DEDUP-001
+
+```text
+metric_id: RECOVERY-DEDUP-001
+metric: injected replay duplicates removed before the windowed aggregate
+value: 2,389 of 2,389 removed, all 777 windows match the source exactly
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 50,000 source events, 5% duplicate injection, seed 42
+command / test: scripts/test_duplicates.py
+config: dropDuplicates on event_id with a 24 hour watermark, in its own query between Bronze
+        and the aggregate
+evidence: benchmarks/raw/duplicate_test.json
+notes: controlled both ways. With dedup enabled the aggregate totals 50,000 events matching the
+       source. With dedup disabled it totals 52,389, inflated by exactly the 2,389 injected
+       duplicates across 626 windows. Bronze keeps all 52,389 rows because it is immutable raw
+       history, while holding exactly 50,000 distinct event ids.
+```
+
+### RECOVERY-LATE-001
+
+```text
+metric_id: RECOVERY-LATE-001
+metric: events excluded from the deduplicated stream by the watermark
+value: 0.560% (280 of 50,000) at a 24 hour watermark, 3.448% (1,724) at 1 minute
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 50,000 source events with 10% additional delay injected on top of replay lateness
+command / test: scripts/test_late_events.py
+config: same stream run twice, only the watermark differs
+evidence: benchmarks/raw/late_event_test.json
+notes: measures the watermark tradeoff rather than asserting zero loss. The 0.56% figure comes
+       from deliberately injected extra delay; with normal replay traffic the same 24 hour
+       watermark loses nothing, proven by RECOVERY-DEDUP-001 where the deduplicated table came
+       out at exactly 50,000. Every dropped event is still in Bronze and recoverable by the
+       Phase 8 backfill, which is the documented policy.
+```
+
+### RECOVERY-RESTART-001
+
+```text
+metric_id: RECOVERY-RESTART-001
+metric: data loss and duplicate inflation across a mid-stream driver kill and restart
+value: 0 events lost, 0 duplicates introduced, 50,000 of 50,000 recovered
+date: 2026-09-15
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 50,000 source events, 4,000 per trigger
+command / test: scripts/test_restart.py
+config: driver killed with pkill after 5 raw commits, no clean shutdown, then restarted against
+        the same checkpoint directory
+evidence: benchmarks/raw/restart_test.json, docs/evidence/phase6/restart_recovery.log
+notes: killed at 19,980 of 50,000 rows in Bronze with 30,020 remaining. Commits advanced from
+       raw 5 / dedup 1 / metrics 1 to raw 13 / dedup 11 / metrics 5, so the query resumed rather
+       than restarting from the beginning. Final state is exactly 50,000 Bronze rows, 50,000
+       distinct event ids, 50,000 deduplicated rows, and 777 windows. Not a recovery TIME
+       measurement; that belongs to Phase 21.
 ```

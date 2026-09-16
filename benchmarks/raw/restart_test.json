@@ -1,0 +1,37 @@
+{
+  "limit": 50000,
+  "per_trigger": 4000,
+  "produced": {
+    "emitted": 50000,
+    "duplicates": 0,
+    "malformed_on_wire": 0
+  },
+  "commits_before_kill": {
+    "raw": 5,
+    "dedup": 1,
+    "metrics": 1
+  },
+  "commits_after_restart": {
+    "raw": 13,
+    "dedup": 11,
+    "metrics": 5
+  },
+  "bronze_rows_at_kill": 19980,
+  "deduped_rows_at_kill": 3996,
+  "events_remaining_at_kill": 30020,
+  "bronze_rows_final": 50000,
+  "bronze_distinct_event_ids_final": 50000,
+  "deduped_rows_final": 50000,
+  "windowed_events_final": 50000,
+  "windows_final": 777,
+  "checks": {
+    "kill_happened_mid_stream": true,
+    "restart_resumed_rather_than_restarted": true,
+    "all_events_present_after_restart": true,
+    "no_duplicate_inflation_in_bronze": true,
+    "deduped_table_exact": true,
+    "windowed_events_exact": true,
+    "no_records_lost": true
+  },
+  "passed": true
+}

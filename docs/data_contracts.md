@@ -294,3 +294,85 @@ batch.num.messages=10000
 Idempotence plus `acks=all` means a producer-side retry does not create a duplicate record.
 That matters because the project injects duplicates on purpose and needs to know that every
 duplicate observed downstream was one it created, not an artefact of retry.
+
+## Streaming reliability policy
+
+Set in Phase 6, measured rather than assumed.
+
+### Pipeline shape
+
+```text
+Kafka  -> bronze_events     stateless, keeps everything including duplicates
+Bronze -> deduped_events    dropDuplicates on event_id, 24 hour watermark
+deduped -> metrics_5min     5 minute windows, update mode, MERGE on window_start
+```
+
+Three queries rather than one because Spark supports chaining multiple stateful operators only
+in append mode, and append makes a window wait for the watermark before emitting. With a 24 hour
+watermark that lags the aggregate by a full day of event time, so on a bounded replay almost
+nothing closes. Splitting gives each query at most one stateful operator.
+
+### Watermark
+
+24 hours, chosen from measurement.
+
+| Quantile | Lateness |
+|---|---:|
+| p50 | 104 min |
+| p90 | 737 min |
+| p95 | 845 min |
+| p99 | 916 min |
+| max | 959 min (16.0 h) |
+
+Nothing exceeded 24 hours at any batch size tested. The roadmap's suggested 10 minute
+development watermark would have dropped 73% of records here.
+
+This is event-time lateness created by replay compression, not network delay. 138 days of 2015
+are replayed in minutes, so records legitimately sit hours behind the running maximum. A live
+deployment ingesting real events would see seconds and would use a watermark of minutes. The
+watermark has to match how the source actually delivers event time.
+
+Counterintuitive and measured: smaller batches produce more lateness. p50 is 220 minutes at
+1,000 per trigger and 0 at 20,000, because with fewer, larger batches most records have no
+preceding maximum to be late against.
+
+### Deduplication
+
+By `event_id`, the deterministic hash from Phase 2. The same source row always produces the same
+id, so a replayed record is recognisable.
+
+The 460 byte-identical rows in the source survive deduplication, correctly. Source position is
+part of the hash, so they are distinct records rather than replay duplicates.
+
+The watermark bounds dedup state. Without it Spark would remember every id ever seen. The
+tradeoff is that a duplicate arriving more than 24 hours after the original will not be caught.
+
+Measured: 2,389 injected duplicates removed, all 777 windows matching the source exactly. With
+deduplication disabled the same run inflates by exactly 2,389 events across 626 windows.
+
+### Late event policy
+
+| Case | Behaviour |
+|---|---|
+| within the watermark | deduplicated and counted normally |
+| beyond the watermark | dropped from the deduplicated stream, still present in Bronze |
+
+Dropped events are recoverable, because Bronze is immutable raw history and Phase 8 reprocesses
+from it. That asymmetry is deliberate: durable history keeps everything, the live aggregate is
+bounded.
+
+Measured with 10% additional delay injected on top of replay lateness: 0.560% dropped at a 24
+hour watermark, 3.448% at 1 minute. With normal replay traffic and no injected delay, the 24
+hour watermark drops nothing.
+
+### Restart behaviour
+
+Kafka and Spark checkpoints do different jobs, and the restart test makes the difference
+concrete. Kafka retains the messages regardless of what any consumer does. The Spark checkpoint
+records how far this query got and what its stateful operators held. Delete the checkpoint and
+the query reprocesses from `startingOffsets`; keep it and the query resumes exactly where it
+stopped.
+
+Measured: driver killed with `pkill` at 19,980 of 50,000 rows, no clean shutdown, 30,020 events
+remaining. After restart against the same checkpoint, exactly 50,000 Bronze rows, 50,000
+distinct event ids, 50,000 deduplicated rows, 777 windows. Zero loss, zero duplicate inflation.

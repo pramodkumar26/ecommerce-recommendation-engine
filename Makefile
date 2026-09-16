@@ -2,8 +2,9 @@ SHELL := /bin/bash
 PY := .venv/bin/python
 PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
+SPARK_PACKAGES := $(shell grep '^SPARK_PACKAGES=' .env 2>/dev/null | cut -d= -f2-)
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq stream verify-streaming measure-lateness test-duplicates test-late-events test-restart verify-reliability clean
 
 help:
 	@echo "setup"
@@ -35,6 +36,17 @@ help:
 	@echo "  make schemas          register avro schemas, test compatibility"
 	@echo "  make dlq-router       consume topics, route bad records to the dlq"
 	@echo "  make verify-schema-dlq  phase 4 checks (resets topics)"
+	@echo ""
+	@echo "spark streaming"
+	@echo "  make stream           run the phase 5 streaming job (RUN_LABEL=, LIMIT_PER_TRIGGER=)"
+	@echo "  make verify-streaming phase 5 correctness checks against the fixture"
+	@echo ""
+	@echo "reliability (phase 6)"
+	@echo "  make measure-lateness   measure event-time lateness distribution"
+	@echo "  make test-duplicates    injected duplicates must not change counts"
+	@echo "  make test-late-events   watermark boundary, both sides"
+	@echo "  make test-restart       kill mid-stream, restart, prove no loss"
+	@echo "  make verify-reliability run all three reliability tests"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -110,6 +122,35 @@ dlq-router:
 
 verify-schema-dlq: topics
 	$(PY) scripts/verify_schema_dlq.py
+
+stream:
+	docker compose exec -T spark-master /opt/spark/bin/spark-submit \
+		--master spark://spark-master:7077 --driver-memory 1g --executor-memory 1g \
+		--total-executor-cores 6 --packages $(SPARK_PACKAGES) \
+		/opt/spark/project/streaming/jobs/stream_events.py \
+		--run-label $(or $(RUN_LABEL),dev) \
+		--max-offsets-per-trigger $(or $(LIMIT_PER_TRIGGER),5000) \
+		--await-seconds $(or $(AWAIT),1200) --idle-seconds 40
+
+verify-streaming:
+	$(PY) scripts/verify_streaming.py
+
+measure-lateness:
+	docker compose exec -T spark-master /opt/spark/bin/spark-submit \
+		--master local[2] --driver-memory 900m --packages $(SPARK_PACKAGES) \
+		/opt/spark/project/streaming/jobs/measure_lateness.py \
+		--run-label $(or $(RUN_LABEL),fixture) --batch-size $(or $(BATCH),5000)
+
+test-duplicates:
+	$(PY) scripts/test_duplicates.py
+
+test-late-events:
+	$(PY) scripts/test_late_events.py
+
+test-restart:
+	$(PY) scripts/test_restart.py
+
+verify-reliability: test-duplicates test-late-events test-restart
 
 clean:
 	docker compose --profile streaming down -v

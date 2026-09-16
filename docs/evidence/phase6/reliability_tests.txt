@@ -1,0 +1,89 @@
+Phase 6 reliability test results
+
+=== lateness distribution ===
+  run_label                                  fixture
+  batch_size_modelled                        5000
+  total_records                              50000
+  batches_modelled                           11
+  lateness_ms_quantiles                      {'p50': 6240438, 'p90': 44208928, 'p95': 50723309, 'p99': 54965165, 'p999': 56910474, 'max': 57528892}
+  lateness_readable                          {'p50': '104.0 min', 'p90': '736.8 min', 'p95': '845.4 min', 'p99': '916.1 min', 'p999': '948.5 min', 'max': '958.8 min'}
+  records_later_than                         {'later_than_1min': 37785, 'later_than_5min': 37321, 'later_than_10min': 36719, 'later_than_30min': 34338, 'later_than_60min': 30762, 'later_than_180min': 16746, 'later_than_360min': 9491, 'later_than_720min': 5331, 'later_than_1440min': 0}
+  records_with_zero_lateness                 12109
+
+=== duplicate test ===
+  limit                                      50000
+  duplicate_rate                             0.05
+  produced                                   {'emitted': 52389, 'duplicates': 2389, 'malformed_on_wire': 0}
+  expected_events_from_source                50000
+  expected_windows_in_source                 777
+  bronze_rows_with_dedup_on                  52389
+  bronze_distinct_event_ids                  50000
+  dedup_on_totals                            {'windows': 777, 'events': 50000, 'views': 48350, 'carts': 1253, 'transactions': 397}
+  dedup_off_totals                           {'windows': 777, 'events': 52389, 'views': 50652, 'carts': 1312, 'transactions': 425}
+  windows_emitted_dedup_on                   777
+  windows_emitted_dedup_off                  777
+  windows_compared                           777
+  windows_inflated_without_dedup             626
+  extra_events_without_dedup                 2389
+  passed                                     True
+
+  ok   bronze_keeps_duplicates
+  ok   bronze_distinct_ids_match_source
+  ok   dedup_on_emitted_windows
+  ok   dedup_on_every_window_matches_source
+  ok   dedup_off_inflates_windows
+  ok   dedup_removed_something
+  passed: True
+
+=== late event test ===
+  limit                                      50000
+  delay_rate                                 0.1
+  produced                                   {'emitted': 50000, 'duplicates': 0, 'malformed_on_wire': 0}
+  generous_watermark                         24 hours
+  tight_watermark                            1 minute
+  generous_bronze_rows                       50000
+  generous_deduped_rows                      49720
+  generous_windowed_events                   49720
+  tight_bronze_rows                          50000
+  tight_deduped_rows                         48276
+  tight_windowed_events                      48276
+  events_dropped_by_tight_watermark          1724
+  pct_dropped_by_tight_watermark             3.448
+  passed                                     True
+  events_dropped_by_generous_watermark       280
+  pct_dropped_by_generous_watermark          0.56
+
+  ok   bronze_has_everything_generous
+  ok   bronze_has_everything_tight
+  ok   watermark_size_controls_drop_rate
+  ok   generous_watermark_drop_rate_under_1pct
+  ok   tight_watermark_drops_events
+  ok   dropped_events_still_in_bronze
+  ok   generous_dropped_events_still_in_bronze
+  passed: True
+
+=== restart test ===
+  limit                                      50000
+  per_trigger                                4000
+  produced                                   {'emitted': 50000, 'duplicates': 0, 'malformed_on_wire': 0}
+  commits_before_kill                        {'raw': 5, 'dedup': 1, 'metrics': 1}
+  commits_after_restart                      {'raw': 13, 'dedup': 11, 'metrics': 5}
+  bronze_rows_at_kill                        19980
+  deduped_rows_at_kill                       3996
+  events_remaining_at_kill                   30020
+  bronze_rows_final                          50000
+  bronze_distinct_event_ids_final            50000
+  deduped_rows_final                         50000
+  windowed_events_final                      50000
+  windows_final                              777
+  passed                                     True
+
+  ok   kill_happened_mid_stream
+  ok   restart_resumed_rather_than_restarted
+  ok   all_events_present_after_restart
+  ok   no_duplicate_inflation_in_bronze
+  ok   deduped_table_exact
+  ok   windowed_events_exact
+  ok   no_records_lost
+  passed: True
+

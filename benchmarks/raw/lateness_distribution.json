@@ -1,0 +1,34 @@
+{
+  "run_label": "fixture",
+  "batch_size_modelled": 5000,
+  "total_records": 50000,
+  "batches_modelled": 11,
+  "lateness_ms_quantiles": {
+    "p50": 6240438,
+    "p90": 44208928,
+    "p95": 50723309,
+    "p99": 54965165,
+    "p999": 56910474,
+    "max": 57528892
+  },
+  "lateness_readable": {
+    "p50": "104.0 min",
+    "p90": "736.8 min",
+    "p95": "845.4 min",
+    "p99": "916.1 min",
+    "p999": "948.5 min",
+    "max": "958.8 min"
+  },
+  "records_later_than": {
+    "later_than_1min": 37785,
+    "later_than_5min": 37321,
+    "later_than_10min": 36719,
+    "later_than_30min": 34338,
+    "later_than_60min": 30762,
+    "later_than_180min": 16746,
+    "later_than_360min": 9491,
+    "later_than_720min": 5331,
+    "later_than_1440min": 0
+  },
+  "records_with_zero_lateness": 12109
+}

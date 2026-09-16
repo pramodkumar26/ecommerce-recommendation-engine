@@ -7,66 +7,78 @@ the log at the bottom.
 ## Current state
 
 ```text
-phase:                Phase 4 complete
-last task completed:  Avro schemas, Schema Registry compatibility, and DLQ routing verified.
-branch / commit:      main, Phase 4 changes not yet committed
-services running:     streaming profile up (kafka, schema-registry, spark, redis)
-services stopped:     none
-next command to run:  make verify-schema-dlq   (resets topics, reruns every Phase 4 check)
+phase:                Phase 6 complete
+last task completed:  Watermark measured, dedup, late-event policy, checkpoint restart proven.
+branch / commit:      main, Phase 6 changes not yet committed
+services running:     streaming profile up, no Spark application running
+services stopped:     all test streams self-terminated and released their cores
+next command to run:  make verify-reliability
 unresolved error:     none
-next test:            Phase 5, window metrics correct on a known fixture
+next test:            Phase 7, historical event never receives a future property value
 Azure left alive:     none, no Azure resources provisioned yet
 ```
 
-## Phase 4 result
+## Phase 6 result
 
-Definition of done, all met. Ten checks pass:
+Definition of done, all four met.
 
-- v2 accepted as backward compatible, v3 rejected by the registry
-- a v1 reader decodes a v2 record and drops the two unknown fields
-- every produced record consumed, 20,422 of 20,422
-- 960 malformed records routed to the DLQ, matching what was put on the wire
-- valid traffic kept flowing, 19,462 records
-- valid + DLQ == consumed exactly, nothing lost or invented
-- all three error types observed
-- DLQ records carry topic, partition, offset, key, and original bytes
+| Requirement | Result |
+|---|---|
+| injected duplicate does not alter final count | 2,389 removed, 777 windows exact |
+| within-watermark event handled correctly | 0.56% dropped at 24h vs 3.45% at 1 min |
+| Spark restarts from checkpoint | resumed at 19,980 of 50,000, finished at 50,000 |
+| no silent loss in controlled test | 0 lost, 0 duplicates introduced |
 
-Evidence in `docs/evidence/phase4/` and `benchmarks/raw/schema_dlq_verification.json`,
-`benchmarks/raw/dlq_router_stats.json`. Four ledger rows added, `pending` until commit.
+Phase 5's 13 checks were re-run afterwards and still pass, so the restructure caused no
+regression. Evidence in `docs/evidence/phase6/`. Four ledger rows added, `pending` until commit.
 
-### What was built
+### The watermark, measured instead of guessed
 
-Four Avro schemas in `producer/schemas/`. `kafka/register_schemas.py` registers them and runs
-the compatibility checks. `kafka/validation.py` holds the decode and validation rules.
-`kafka/dlq_router.py` consumes, routes bad records, and keeps going.
-`scripts/verify_schema_dlq.py` runs the full Phase 4 proof after resetting topics and subjects.
+`streaming/jobs/measure_lateness.py` measures how far behind the running maximum event time each
+record actually arrives, which is exactly what Spark compares against.
 
-The simulator now serialises Avro through Schema Registry. Its malformed modes were reworked to
-match Avro's failure layers: `raw_garbage`, `unknown_schema_id`, and `invalid_field`.
+```text
+p50  104 min    p90  737 min    p95  845 min    p99  916 min    max  959 min (16.0 h)
+```
 
-### Three decisions worth remembering
+Nothing exceeded 24 hours at any batch size, so the watermark is 24 hours. The roadmap's
+suggested 10 minute development default would have dropped 73% of records here.
 
-Timestamps are plain `long` epoch milliseconds, not the Avro `timestamp-millis` logical type.
-fastavro decodes that logical type into timezone-aware datetimes and Spark maps it to
-`TimestampType` with session-timezone conversion. Phases 5 and 6 depend on exact event-time
-semantics, and a silent timezone shift there would corrupt every windowed aggregate in a way
-that is very hard to spot.
+Two things worth remembering. This is event-time lateness created by replay compression, not
+network delay; a live deployment would see seconds. And smaller batches produce MORE lateness,
+p50 220 min at 1,000 per trigger versus 0 at 20,000, because with fewer larger batches most
+records have no preceding maximum to be late against. That is why the Phase 5 attempt at smaller
+batches made things worse.
 
-The `transaction_id` validation rule (present on transaction events, absent on all others) is
-only enforceable because Phase 2 measured it holding with zero exceptions across 2,756,101 rows.
+### The architecture changed, and why
 
-Validation rules live in a shared module so Phase 5's Spark job applies exactly the same rules
-as the Phase 4 router rather than a drifting second copy.
+The job is now three queries chained through Delta:
 
-### Two bugs found and fixed during the phase
+```text
+Kafka   -> bronze_events     stateless, keeps duplicates
+Bronze  -> deduped_events    dropDuplicates on event_id, 24h watermark
+deduped -> metrics_5min      5 min windows, update mode, MERGE on window_start
+```
 
-The first Avro conversion called the corruption function twice per record, consuming the seeded
-RNG twice and selecting the mode twice. It showed up as double-counted malformed modes in the
-stats. The simulator was rewritten so every injection decision is drawn once, in a fixed order,
-inside `plan()`.
+Spark supports chaining multiple stateful operators only in append mode. Putting dedup and the
+windowed aggregate in one update-mode query silently produced wrong results: 76% of events
+vanished and the 24% that survived were exactly the records with zero lateness. Switching that
+query to append mode then meant the aggregate lagged a full day of event time behind the
+watermark, so on a 65 hour fixture almost nothing ever closed.
 
-The DLQ router reused the `record` variable across loop iterations, so a decode failure would
-have attached the previous record's `schema_version` to the DLQ entry. Now reset per iteration.
+Splitting them gives each query at most one stateful operator, restores the proven update mode
+plus MERGE aggregate, and matches the medallion layering Phase 7 needs anyway.
+
+Two knock-on fixes: chained Delta streaming reads fail with DELTA_SCHEMA_NOT_SET until the table
+has been written once, so `ensure_tables` bootstraps both tables empty with the exact schema.
+Worker cores went 4 to 6 because three queries on four cores starve each other.
+
+### A test assertion that was wrong, not the code
+
+The late-event test first asserted the 24 hour watermark loses nothing, and it dropped 280
+events. That run deliberately injects 10% extra delay on top of replay lateness, so a small tail
+falling outside is the policy working. The zero-loss case is proven separately by the duplicate
+test, where the same watermark with normal traffic yields exactly 50,000 deduplicated rows.
 
 ## Phase order change
 
@@ -170,19 +182,29 @@ answer is a custom image.
 
 ## Next up
 
-Phase 5, core Spark streaming. Read all three topics from Kafka in Structured Streaming, parse
-event time, compute windowed aggregates, write live metrics to Redis, and write raw events to
-Delta on the local volume.
+Phase 7, Bronze / Silver / Gold and point-in-time enrichment. Silver is where the actual data
+cleaning happens: type and timestamp normalization, deduplication, invalid-record removal, and
+the point-in-time item property join. Then Gold analytics and training tables, a time-based
+partition strategy, and the scheduled ADLS sync.
 
-Phase 5 is done when the stream processes all three topics and basic window metrics are correct
-on a known fixture.
+Most of Phase 7 is local and does not need Azure. Only the scheduled sync and the
+cloud-integration smoke test do, so start on Silver and Gold and slot the sync in when the
+Azure CLI question is resolved.
 
-Watch for: Spark needs the Kafka and Avro connector JARs, and the Spark image is 3.5.7 with
-Hadoop 3.3.4. Pin the matching `spark-sql-kafka-0-10` and `spark-avro` versions and record them
-in `docs/ENVIRONMENT.md`. This is the first phase that touches the JAR compatibility risk the
-roadmap budgets a day for in Phase 7.
+Phase 7 is done when a historical event never receives a property value whose timestamp is in
+the future, Bronze can regenerate Silver for a bounded range, one local-to-ADLS sync completes,
+and cloud timing is recorded separately from local streaming timing.
 
-Estimate: 2 to 3 days.
+What Phase 2 already established for this phase: item properties are 18 discrete weekly
+snapshots rather than a change log, so the join is an as-of lookup against 18 known dates. The
+measured miss rate is 14.27%, and those events get null enrichment rather than being backfilled
+from a later snapshot, which would be the exact leakage the join exists to prevent.
+
+This phase carries the roadmap's only budgeted risk day, for ABFS and JAR compatibility. The
+connector chain is already pinned and recorded in `docs/ENVIRONMENT.md`, and Spark 3.5.7 bundles
+Hadoop 3.3.4, so `hadoop-azure` must match 3.3.4.
+
+Estimate: 3 to 4 days.
 
 ## Open questions
 

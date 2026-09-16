@@ -66,7 +66,12 @@ services:
           memory: 768m
 
   spark-master:
-    image: apache/spark:${SPARK_VERSION:-3.5.7}-python3
+    image: ecomm-rec/spark:${SPARK_VERSION:-3.5.7}
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+      args:
+        SPARK_VERSION: ${SPARK_VERSION:-3.5.7}
     container_name: spark-master
     profiles: [streaming, all]
     user: root
@@ -82,6 +87,8 @@ services:
       - ./streaming:/opt/spark/project/streaming
       - ./batch:/opt/spark/project/batch
       - ./scripts:/opt/spark/project/scripts
+      - ./producer:/opt/spark/project/producer
+      - ./jars/ivy:/root/.ivy2
       - ./data/delta:/opt/spark/project/data/delta
       - ./data/checkpoints:/opt/spark/project/data/checkpoints
     healthcheck:
@@ -93,10 +100,15 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 1536m
 
   spark-worker:
-    image: apache/spark:${SPARK_VERSION:-3.5.7}-python3
+    image: ecomm-rec/spark:${SPARK_VERSION:-3.5.7}
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+      args:
+        SPARK_VERSION: ${SPARK_VERSION:-3.5.7}
     container_name: spark-worker
     profiles: [streaming, all]
     user: root
@@ -116,6 +128,8 @@ services:
       - ./streaming:/opt/spark/project/streaming
       - ./batch:/opt/spark/project/batch
       - ./scripts:/opt/spark/project/scripts
+      - ./producer:/opt/spark/project/producer
+      - ./jars/ivy:/root/.ivy2
       - ./data/delta:/opt/spark/project/data/delta
       - ./data/checkpoints:/opt/spark/project/data/checkpoints
     deploy:

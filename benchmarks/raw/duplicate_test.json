@@ -1,0 +1,42 @@
+{
+  "limit": 50000,
+  "duplicate_rate": 0.05,
+  "produced": {
+    "emitted": 52389,
+    "duplicates": 2389,
+    "malformed_on_wire": 0
+  },
+  "expected_events_from_source": 50000,
+  "expected_windows_in_source": 777,
+  "bronze_rows_with_dedup_on": 52389,
+  "bronze_distinct_event_ids": 50000,
+  "dedup_on_totals": {
+    "windows": 777,
+    "events": 50000,
+    "views": 48350,
+    "carts": 1253,
+    "transactions": 397
+  },
+  "dedup_off_totals": {
+    "windows": 777,
+    "events": 52389,
+    "views": 50652,
+    "carts": 1312,
+    "transactions": 425
+  },
+  "windows_emitted_dedup_on": 777,
+  "windows_emitted_dedup_off": 777,
+  "windows_compared": 777,
+  "windows_inflated_without_dedup": 626,
+  "extra_events_without_dedup": 2389,
+  "dedup_on_mismatches": [],
+  "checks": {
+    "bronze_keeps_duplicates": true,
+    "bronze_distinct_ids_match_source": true,
+    "dedup_on_emitted_windows": true,
+    "dedup_on_every_window_matches_source": true,
+    "dedup_off_inflates_windows": true,
+    "dedup_removed_something": true
+  },
+  "passed": true
+}
