@@ -1,0 +1,70 @@
+{
+  "started_utc": "2026-09-16T17:17:07Z",
+  "results": {
+    "phase7_validation_parity": {
+      "phase": "unit",
+      "status": "PASS",
+      "seconds": 0.4
+    },
+    "phase7_timestamp_roundtrip": {
+      "phase": "7",
+      "status": "PASS",
+      "seconds": 22.9
+    },
+    "phase3_replay_determinism": {
+      "phase": "3",
+      "status": "PASS",
+      "seconds": 27.8
+    },
+    "phase4_schema_and_dlq": {
+      "phase": "4",
+      "status": "PASS",
+      "seconds": 13.0
+    },
+    "phase5_fixture_rebuild": {
+      "phase": "5",
+      "status": "PASS",
+      "seconds": 108.0
+    },
+    "phase5_streaming_correctness": {
+      "phase": "5",
+      "status": "PASS",
+      "seconds": 13.7
+    },
+    "phase6_duplicates": {
+      "phase": "6",
+      "status": "PASS",
+      "seconds": 235.0
+    },
+    "phase6_late_events": {
+      "phase": "6",
+      "status": "PASS",
+      "seconds": 239.2
+    },
+    "phase6_restart_recovery": {
+      "phase": "6",
+      "status": "PASS",
+      "seconds": 143.2
+    },
+    "phase7_silver_rejects": {
+      "phase": "7",
+      "status": "PASS",
+      "seconds": 144.2
+    },
+    "phase7_point_in_time": {
+      "phase": "7",
+      "status": "PASS",
+      "seconds": 15.6
+    },
+    "phase7_bounded_rebuild": {
+      "phase": "7",
+      "status": "PASS",
+      "seconds": 37.2
+    }
+  },
+  "finished_utc": "2026-09-16T17:33:47Z",
+  "passed": 12,
+  "total": 12,
+  "all_green": true,
+  "total_seconds": 1000.2
+}

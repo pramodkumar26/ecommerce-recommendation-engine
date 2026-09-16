@@ -1,0 +1,35 @@
+{
+  "run_label": "silver",
+  "source_rows": "100000 to 200000",
+  "silver_rows": 100000,
+  "spark_enriched": 31408,
+  "pandas_enriched": 31408,
+  "rows_compared": 100000,
+  "disagreements": 0,
+  "rows_enriched_from_the_future_spark": 0,
+  "rows_enriched_from_the_future_independent": 0,
+  "min_enrichment_lag_ms": 9663,
+  "enrichment_status_counts": {
+    "enriched": 31408,
+    "no_property_at_or_before_event": 68592
+  },
+  "rows_with_parent_category": 31405,
+  "partitions": [
+    "2015-05-07",
+    "2015-05-08",
+    "2015-05-09",
+    "2015-05-10",
+    "2015-05-11",
+    "2015-05-12",
+    "2015-05-13"
+  ],
+  "checks": {
+    "spark_reports_zero_future_enrichment": true,
+    "independent_check_finds_zero_future_enrichment": true,
+    "min_enrichment_lag_non_negative": true,
+    "enriched_count_matches_independent_join": true,
+    "every_event_agrees_with_independent_join": true,
+    "unenriched_rows_have_a_status": true
+  },
+  "passed": true
+}

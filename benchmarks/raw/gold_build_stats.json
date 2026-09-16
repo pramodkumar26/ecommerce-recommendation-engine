@@ -1,0 +1,14 @@
+{
+  "run_label": "silver",
+  "silver_rows": 100000,
+  "fact_events_rows": 100000,
+  "fact_transactions_rows": 639,
+  "distinct_transaction_ids": 519,
+  "mart_item_funnel_rows": 40108,
+  "mart_category_performance_rows": 783,
+  "mart_daily_item_metrics_rows": 63457,
+  "events_attributable_to_a_category": 31408,
+  "category_attribution_pct": 31.408,
+  "items_with_a_purchase": 576,
+  "items_with_a_cart": 1777
+}

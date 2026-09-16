@@ -1,0 +1,101 @@
+Phase 7 evidence summary
+
+=== full dataset run ===
+  any_property_miss_rate_pct                   14.266
+  categoryid_miss_rate_pct                     23.835
+  total_seconds                                459.7
+  passed                                       True
+
+  ok   all_stages_completed
+  ok   bronze_holds_expected_rows
+  ok   no_rows_lost_through_silver
+  ok   any_property_rate_reproduces_phase2
+  ok   no_future_enrichment
+  ok   enrichment_measurement_passed
+
+=== enrichment measurement ===
+  run_label                                    fulldata
+  total_events                                 2756101
+  any_property                                 {'joinable': 2362903, 'item_has_no_such_property': 255585, 'event_precedes_first_occurrence': 137613, 'miss_rate_pct': 14.266}
+  categoryid                                   {'joinable': 2099173, 'item_has_no_such_property': 255585, 'event_precedes_first_occurrence': 401343, 'miss_rate_pct': 23.835}
+  phase2_expected_any_property_pct             14.266
+  difference_from_phase2_points                0.0
+  events_with_a_property_but_no_category_yet   263730
+  silver_rows                                  2756101
+  silver_enriched                              2099173
+  silver_miss_rate_pct                         23.835
+  silver_rows_enriched_from_the_future         0
+  passed                                       True
+
+  ok   reproduces_phase2_any_property_rate
+  ok   categoryid_rate_is_higher_as_expected
+  ok   same_items_lack_any_property
+  ok   no_future_enrichment_in_silver
+  ok   silver_enrichment_matches_source_possibility
+
+=== timestamp round trip ===
+  session_timezone_configured                  UTC
+  timezones_tried                              ['UTC', 'America/Denver', 'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Chatham']
+  tables                                       {'bronze_events': {'rows': 100000, 'mismatches': 0, 'all_exact': True}, 'silver_events': {'rows': 100000, 'mismatches': 0, 'all_exact': True}}
+
+  ok   all_synthetic_cases_exact
+  ok   dst_transition_cases_exact
+  ok   result_independent_of_session_timezone
+  ok   pipeline_runs_in_utc
+  ok   bronze_all_exact
+  ok   silver_all_exact
+
+=== silver rejects ===
+  bronze_rows                                  28830
+  silver_rows                                  28220
+  rejected_rows                                610
+  actual_silver_rejects                        {'non_transaction_with_transaction_id': 215, 'negative_visitor_id': 203, 'event_timestamp_out_of_range': 192}
+  expected_silver_rejects                      {'negative_visitor_id': 203, 'event_timestamp_out_of_range': 192, 'non_transaction_with_transaction_id': 215}
+
+  ok   bronze_excludes_undecodable
+  ok   silver_rejects_fired_at_all
+  ok   reject_count_matches_injected
+  ok   reject_categories_match
+  ok   all_three_invalid_modes_present
+  ok   valid_rows_reach_silver
+  ok   no_valid_record_lost
+
+=== restart persistence ===
+  rows_before                                  {'bronze_events': 100000, 'silver_events': 100000, 'silver_rejected': 0, 'dim_items_scd': 1031473, 'dim_categories': 1669, 'fact_events': 100000, 'fact_transactions': 639, 'mart_item_funnel': 40108, 'mart_category_performance': 783, 'mart_daily_item_metrics': 63457}
+  tables_identical_after_restart               ['bronze_events', 'dim_categories', 'dim_items_scd', 'fact_events', 'fact_transactions', 'mart_category_performance', 'mart_daily_item_metrics', 'mart_item_funnel', 'silver_events', 'silver_rejected']
+  tables_reproduced_by_rebuild                 ['bronze_events', 'dim_categories', 'dim_items_scd', 'fact_events', 'fact_transactions', 'mart_category_performance', 'mart_daily_item_metrics', 'mart_item_funnel', 'silver_events', 'silver_rejected']
+
+  ok   all_containers_stopped
+  ok   delta_files_survive_on_host
+  ok   every_table_identical_after_restart
+  ok   rebuild_reproduces_every_table
+  ok   gold_tables_present
+  ok   row_counts_unchanged
+
+=== regression suite ===
+  passed                                       12
+  total                                        12
+  all_green                                    True
+  total_seconds                                1000.2
+
+=== full run stage timings ===
+  reset_topics             ok            2.5s
+  produce_full_dataset     ok          115.1s
+  stream_to_bronze         ok          241.3s
+  build_item_scd           ok           20.9s
+  build_silver             ok           56.0s
+  measure_enrichment       ok           23.9s
+
+=== regression detail ===
+  PASS     phase unit  phase7_validation_parity                0.4s
+  PASS     phase 7     phase7_timestamp_roundtrip             22.9s
+  PASS     phase 3     phase3_replay_determinism              27.8s
+  PASS     phase 4     phase4_schema_and_dlq                  13.0s
+  PASS     phase 5     phase5_fixture_rebuild                108.0s
+  PASS     phase 5     phase5_streaming_correctness           13.7s
+  PASS     phase 6     phase6_duplicates                     235.0s
+  PASS     phase 6     phase6_late_events                    239.2s
+  PASS     phase 6     phase6_restart_recovery               143.2s
+  PASS     phase 7     phase7_silver_rejects                 144.2s
+  PASS     phase 7     phase7_point_in_time                   15.6s
+  PASS     phase 7     phase7_bounded_rebuild                 37.2s

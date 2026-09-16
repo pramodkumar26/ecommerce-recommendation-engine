@@ -1,11 +1,39 @@
-"""Consume the behavioral topics, route unusable records to clickstream_dlq, keep going.
+"""Phase 4 contract-validation harness. NOT a durable pipeline service.
 
-The point of this phase is that bad data does not stop the stream. Every failure is caught,
-described, and written to the DLQ with enough context to reproduce it, and the consumer moves
-on to the next record.
+Consumes the behavioral topics, routes unusable records to clickstream_dlq with enough context
+to reproduce each failure, and keeps going, demonstrating that bad data does not stop a stream.
 
-Phase 5's Spark job takes over the valid path. This router demonstrates the contract and owns
-the validation rules that Spark will reuse.
+WHAT THIS IS, AND WHY IT DOES NOT COMMIT OFFSETS
+
+It runs with enable.auto.commit=false and deliberately never commits. That is not an oversight.
+This is a verification harness: every run is expected to read the topic from the beginning and
+produce a complete, repeatable picture of which records violate the contract. Committing
+offsets would make the second run of scripts/verify_schema_dlq.py see almost nothing and
+silently weaken the test. Each run also uses a fresh group.id for the same reason.
+
+The consequence is stated plainly: restarting this router reprocesses everything and rewrites
+DLQ records it has already written. Acceptable for a harness, unacceptable for a service.
+
+WHO OWNS THE DURABLE PATH INSTEAD
+
+The Spark Bronze -> Silver path owns durable invalid-record handling for the actual pipeline.
+Spark checkpoints track progress, and batch/jobs/build_silver.py writes contract failures to the
+silver_rejected Delta table. That path is exactly-once with respect to its checkpoint and is
+what Phase 6's restart test exercises.
+
+Two reject surfaces exist and they catch different things:
+
+    clickstream_dlq   wire-level failures. Bytes that are not valid Confluent Avro framing, or
+                      carry a schema id the registry does not know. These never become rows at
+                      all, so only a Kafka-level consumer can see them.
+
+    silver_rejected   records that decoded cleanly and then broke a business rule, for example
+                      a transaction with no transaction_id. These are rows, so Spark handles
+                      them.
+
+The overlap is validation_failed: this harness classifies it from Kafka, and Silver classifies
+it again in Spark. Both apply the same rules, and tests/test_validation_parity.py asserts the
+two implementations agree record for record.
 """
 
 import argparse
@@ -40,6 +68,8 @@ def build(args):
     deserializer = AvroDeserializer(sr, event_schema, lambda rec, ctx: rec)
     dlq_serializer = AvroSerializer(sr, dlq_schema, lambda rec, ctx: rec)
 
+    # No offsets are committed, by design. See the module docstring: this is a verification
+    # harness that must re-read the whole topic on every run, not a service that resumes.
     consumer = Consumer(
         {
             "bootstrap.servers": args.bootstrap,

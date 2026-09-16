@@ -1,0 +1,90 @@
+{
+  "run_label": "silver",
+  "tables": [
+    "bronze_events",
+    "dim_categories",
+    "dim_items_scd",
+    "fact_events",
+    "fact_transactions",
+    "mart_category_performance",
+    "mart_daily_item_metrics",
+    "mart_item_funnel",
+    "silver_events",
+    "silver_rejected"
+  ],
+  "rows_before": {
+    "bronze_events": 100000,
+    "silver_events": 100000,
+    "silver_rejected": 0,
+    "dim_items_scd": 1031473,
+    "dim_categories": 1669,
+    "fact_events": 100000,
+    "fact_transactions": 639,
+    "mart_item_funnel": 40108,
+    "mart_category_performance": 783,
+    "mart_daily_item_metrics": 63457
+  },
+  "rows_after_rebuild": {
+    "bronze_events": 100000,
+    "silver_events": 100000,
+    "silver_rejected": 0,
+    "dim_items_scd": 1031473,
+    "dim_categories": 1669,
+    "fact_events": 100000,
+    "fact_transactions": 639,
+    "mart_item_funnel": 40108,
+    "mart_category_performance": 783,
+    "mart_daily_item_metrics": 63457
+  },
+  "containers_running_while_down": [],
+  "tables_on_host_while_down": [
+    "bench_partitioned",
+    "bench_unpartitioned",
+    "bronze_events",
+    "deduped_events",
+    "dim_categories",
+    "dim_items_scd",
+    "fact_events",
+    "fact_transactions",
+    "mart_category_performance",
+    "mart_daily_item_metrics",
+    "mart_item_funnel",
+    "metrics_5min",
+    "silver_events",
+    "silver_rejected"
+  ],
+  "tables_identical_after_restart": [
+    "bronze_events",
+    "dim_categories",
+    "dim_items_scd",
+    "fact_events",
+    "fact_transactions",
+    "mart_category_performance",
+    "mart_daily_item_metrics",
+    "mart_item_funnel",
+    "silver_events",
+    "silver_rejected"
+  ],
+  "tables_reproduced_by_rebuild": [
+    "bronze_events",
+    "dim_categories",
+    "dim_items_scd",
+    "fact_events",
+    "fact_transactions",
+    "mart_category_performance",
+    "mart_daily_item_metrics",
+    "mart_item_funnel",
+    "silver_events",
+    "silver_rejected"
+  ],
+  "tables_changed_by_rebuild": [],
+  "checks": {
+    "all_containers_stopped": true,
+    "delta_files_survive_on_host": true,
+    "every_table_identical_after_restart": true,
+    "rebuild_reproduces_every_table": true,
+    "gold_tables_present": true,
+    "row_counts_unchanged": true
+  },
+  "passed": true
+}

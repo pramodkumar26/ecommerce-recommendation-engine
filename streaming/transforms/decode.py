@@ -75,9 +75,38 @@ def deduplicate(df, watermark):
     return df.withWatermark("event_time", watermark).dropDuplicates(["event_id", "event_time"])
 
 
-def is_decoded(df):
-    return df.filter(F.col(DECODED).isNotNull() & F.col(f"{DECODED}.event_id").isNotNull())
+def _schema_id_trusted(valid_schema_ids):
+    """A record is only trustworthy if its declared schema id is one we actually registered.
+
+    Spark's from_avro takes a static schema string and has no Schema Registry integration, so
+    left alone it strips the 5 byte Confluent header, ignores the schema id entirely, and
+    decodes the payload with whatever schema it was handed. A record claiming schema 964304
+    would decode "successfully" against schema 3 and look completely valid downstream.
+
+    The Phase 4 Python router catches this because it resolves the id against the registry.
+    Spark has to check it explicitly, and measured on a 30,000 record fixture it let 613
+    unknown-schema-id records straight into Bronze before this check existed.
+
+    Passing None disables the check, which is only correct when the caller has already
+    guaranteed provenance some other way.
+    """
+    if valid_schema_ids is None:
+        return F.lit(True)
+    return F.col("schema_id").isin(list(valid_schema_ids))
 
 
-def is_not_decoded(df):
-    return df.filter(F.col(DECODED).isNull() | F.col(f"{DECODED}.event_id").isNull())
+def is_decoded(df, valid_schema_ids=None):
+    return df.filter(
+        F.col(DECODED).isNotNull()
+        & F.col(f"{DECODED}.event_id").isNotNull()
+        & _schema_id_trusted(valid_schema_ids)
+    )
+
+
+def is_not_decoded(df, valid_schema_ids=None):
+    """The exact complement of is_decoded, so every record lands in one side or the other."""
+    return df.filter(
+        F.col(DECODED).isNull()
+        | F.col(f"{DECODED}.event_id").isNull()
+        | ~_schema_id_trusted(valid_schema_ids)
+    )

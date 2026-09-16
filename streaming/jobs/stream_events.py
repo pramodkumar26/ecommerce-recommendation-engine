@@ -60,6 +60,34 @@ from streaming.transforms.decode import (  # noqa: E402
 )
 
 SCHEMA_PATH = "/opt/spark/project/producer/schemas/clickstream_event_v1.avsc"
+EVENT_SUBJECTS = ["item_view-value", "add_to_cart-value", "transaction-value"]
+
+
+def registered_schema_ids(registry_url, subjects=EVENT_SUBJECTS):
+    """Ask the registry which schema ids are legitimate for the behavioral topics.
+
+    Spark's from_avro cannot do this itself, so the ids are fetched once at startup and used to
+    reject records whose declared schema id was never registered. Resolved eagerly rather than
+    per batch: the set is tiny and stable, and a registry outage should not silently widen what
+    the pipeline accepts.
+    """
+    import urllib.request
+
+    ids = set()
+    for subject in subjects:
+        versions_url = f"{registry_url}/subjects/{subject}/versions"
+        try:
+            versions = json.loads(urllib.request.urlopen(versions_url, timeout=10).read())
+        except Exception as e:
+            raise RuntimeError(f"cannot reach schema registry at {registry_url}: {e}") from e
+        for v in versions:
+            meta = json.loads(
+                urllib.request.urlopen(f"{versions_url}/{v}", timeout=10).read()
+            )
+            ids.add(int(meta["id"]))
+    if not ids:
+        raise RuntimeError(f"no schemas registered for {subjects}, refusing to accept anything")
+    return sorted(ids)
 DELTA_ROOT = "/opt/spark/project/data/delta"
 CHECKPOINT_ROOT = "/opt/spark/project/data/checkpoints"
 TOPICS = "item_view,add_to_cart,transaction"
@@ -106,13 +134,25 @@ def ensure_tables(spark, schema_json, bronze_path, deduped_path):
             shape.write.format("delta").mode("append").partitionBy("event_date").save(path)
 
 
-def read_kafka(spark, bootstrap, starting_offsets, max_per_trigger):
+def read_kafka(spark, bootstrap, starting_offsets, max_per_trigger, fail_on_data_loss=True):
+    """Read the behavioral topics.
+
+    failOnDataLoss defaults to TRUE and that is deliberate. When Kafka has aged out records a
+    query has not consumed yet, false makes Spark log a warning and carry on with a gap, while
+    true fails the query loudly. A project whose reliability claim is "no silent loss" cannot
+    have silent loss configured as its default.
+
+    The escape hatch exists because it is occasionally the right call: after deliberately
+    deleting and recreating topics, an old checkpoint references offsets that no longer exist
+    and the query cannot start at all. That is a development recovery scenario, so it is opt-in
+    via --allow-data-loss rather than always on.
+    """
     reader = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", bootstrap)
         .option("subscribe", TOPICS)
         .option("startingOffsets", starting_offsets)
-        .option("failOnDataLoss", "false")
+        .option("failOnDataLoss", "true" if fail_on_data_loss else "false")
     )
     if max_per_trigger:
         reader = reader.option("maxOffsetsPerTrigger", str(max_per_trigger))
@@ -120,50 +160,36 @@ def read_kafka(spark, bootstrap, starting_offsets, max_per_trigger):
 
 
 def windowed_metrics(events, window_duration, watermark=None):
-    """Event-time windows in update mode, with a MERGE sink.
+    """Event-time windows, update mode, no aggregation watermark, MERGE sink.
 
-    Output mode went update -> append across Phases 5 and 6, and the reason is worth keeping.
+    That combination is deliberate and took three attempts to get right, so the reasoning is
+    recorded here. The `watermark` argument is accepted and ignored by design; the dedup query
+    upstream owns the watermark, this one must not apply a second.
 
-    Phase 5 used append with a guessed watermark and the aggregate was badly wrong: windows
-    holding roughly 120 Bronze events received 1 or 2, because replay compresses 138 days of
-    event time into minutes and a too-small watermark raced ahead of records still arriving on
-    other Kafka partitions. Update mode plus a MERGE sink fixed that by dropping nothing.
+    HISTORICAL REPLAY MODE, which is what this pipeline runs
+        The source is a compressed replay: 138 days of 2015 pushed through in minutes. A record
+        can sit hours behind the running maximum event time purely because of that compression,
+        not because anything was slow. Modeled lateness on the 50,000 event fixture at 5,000 per
+        trigger reached p95 845 min and a maximum of 959 min (16.0 h).
 
-    Phase 6 then needed deduplication before the aggregate, and Spark only supports chaining
-    multiple stateful operators in APPEND mode. In update mode the chain silently produced
-    wrong results: 76% of events vanished, and the 24% that survived were exactly the records
-    measured as having zero lateness.
+        Applying a watermark to THIS aggregate drops real data. Phase 5 measured it: windows
+        holding roughly 120 Bronze events emitted 1 or 2. Update mode with no watermark keeps
+        every record, and the MERGE sink collapses the repeated emissions into one row per
+        window. State is bounded in practice because a replay is finite.
 
-    Append is correct now because the watermark is measured rather than guessed. At 24 hours it
-    sits above the 16 hour maximum observed lateness, so nothing is dropped. The cost is that a
-    window is only emitted once the watermark passes its end, so results lag by the watermark
-    in event time. That is honest streaming behaviour, not a defect.
+    LIVE MODE, the intended production behaviour, not implemented here
+        Events arrive near wall-clock time, so real lateness is seconds to minutes rather than
+        hours. There the aggregate SHOULD carry a watermark, sized from measured live lateness,
+        so window state is evicted and an indefinitely running query stays bounded. Append mode
+        becomes viable, and the MERGE sink is no longer needed for correctness.
 
-    The sink still MERGEs on window_start. Append emits each window once, so a plain append
-    would also work, but MERGE makes the sink idempotent if a batch is replayed after a restart.
+        Phase 7 preserves replay behaviour only. Switching modes is a deliberate future change,
+        not a config tweak, because it alters what happens to late data.
 
-    Watermark default comes from measurement, not intuition. streaming/jobs/measure_lateness.py
-    computes how far behind the running maximum event time each record actually arrives, which
-    is exactly what Spark compares against.
-
-    Measured on the 50,000 event fixture at 5,000 per trigger:
-
-        p50  104 min      p95  845 min
-        p90  737 min      p99  916 min      max  959 min (16.0 h)
-
-    Nothing arrives later than 24 hours, at any batch size tried. So the default is 24 hours:
-    above the measured maximum with margin, and it bounds dedup state to roughly one day of
-    event ids.
-
-    The counterintuitive part, also measured: smaller batches produce MORE lateness. At 1,000
-    per trigger p50 lateness is 220 minutes, at 20,000 it is 0. With fewer, larger batches most
-    records sit in the first batch and have no preceding maximum to be late against.
-
-    Critically, this is event-time lateness created by replay compression, not network delay.
-    138 days of 2015 are pushed through in minutes, so records legitimately sit hours behind the
-    running maximum. A deployment ingesting live events would see lateness in seconds and would
-    use a watermark of minutes. The watermark must match how the source actually delivers event
-    time.
+    Why not one query with dedup and aggregation chained: Spark supports multiple stateful
+    operators only in append mode, and in update mode the chain silently produced wrong results,
+    76% of events vanishing. Splitting them across queries gives each at most one stateful
+    operator and restores update mode here. See the module docstring.
     """
     # No watermark here. The source is already deduplicated, this query has one stateful
     # operator, and update mode keeps every record. Adding a watermark would only reintroduce
@@ -283,24 +309,44 @@ def run_bounded(queries, await_seconds, idle_seconds):
     awaitAnyTermination was not usable here: it only returns when a query dies, and these
     queries never die on their own, so a bounded run has to poll progress and stop explicitly.
     A job that outlives its run holds every executor core and blocks the next submit.
+
+    Idle is detected from batch IDs, not from numInputRows. Summing input rows looked correct
+    and truncated a run at 3 of 5 batches: with three chained queries a Delta source can
+    legitimately commit a zero-row batch while the pipeline is still working, so all queries
+    read zero at the same instant and the idle timer started while data was still pending.
+    A query that is genuinely working always advances its batch ID, so that is the real signal.
     """
     deadline = time.time() + await_seconds
     idle_since = None
+    last_batches = None
+
+    def check_for_failures():
+        """A dead query must be loud.
+
+        This originally just stopped when no query was active, so a query that died from an
+        executor OOM looked identical to a clean finish and the job still exited zero. A run
+        truncated at 3 of 5 batches was reported as success. In a pipeline whose entire claim is
+        "no silent loss", a silently failed query is the worst possible failure mode.
+        """
+        failed = [(q.name, q.exception()) for q in queries if q.exception() is not None]
+        if failed:
+            details = "; ".join(f"{name}: {exc}" for name, exc in failed)
+            raise RuntimeError(f"streaming query failed: {details}")
 
     while time.time() < deadline:
+        check_for_failures()
         if not any(q.isActive for q in queries):
             break
-        rows = 0
-        for q in queries:
-            p = q.lastProgress
-            if p:
-                rows += p.get("numInputRows", 0)
-        if rows == 0:
+        batches = tuple(
+            (q.name, q.lastProgress.get("batchId") if q.lastProgress else None) for q in queries
+        )
+        if batches == last_batches:
             idle_since = idle_since or time.time()
             if time.time() - idle_since > idle_seconds:
-                print(f"all queries idle for {idle_seconds}s, stopping")
+                print(f"no query advanced a batch for {idle_seconds}s, stopping")
                 break
         else:
+            last_batches = batches
             idle_since = None
         time.sleep(3)
 
@@ -309,6 +355,9 @@ def run_bounded(queries, await_seconds, idle_seconds):
         print(f"{q.name}: {json.dumps(progress, default=str) if progress else 'no progress'}")
         if q.isActive:
             q.stop()
+
+    # Checked again after stopping: a query can fail during the final batch.
+    check_for_failures()
     print("all queries stopped")
 
 
@@ -317,7 +366,14 @@ def main():
     ap.add_argument("--bootstrap", default="kafka:29092")
     ap.add_argument("--redis-host", default="redis")
     ap.add_argument("--redis-port", type=int, default=6379)
+    ap.add_argument("--schema-registry", default="http://schema-registry:8081")
     ap.add_argument("--starting-offsets", default="earliest")
+    ap.add_argument(
+        "--allow-data-loss",
+        dest="fail_on_data_loss",
+        action="store_false",
+        help="set failOnDataLoss=false. Development recovery only, see read_kafka",
+    )
     ap.add_argument("--window", default="5 minutes")
     ap.add_argument("--watermark", default="24 hours", help="measured, see windowed_metrics")
     ap.add_argument(
@@ -338,6 +394,8 @@ def main():
     args = ap.parse_args()
 
     schema_json = Path(SCHEMA_PATH).read_text()
+    valid_ids = registered_schema_ids(args.schema_registry)
+    print(json.dumps({"trusted_schema_ids": valid_ids}))
     spark = build_session(f"phase5-stream-{args.run_label}")
     spark.sparkContext.setLogLevel("WARN")
 
@@ -349,16 +407,22 @@ def main():
 
     ensure_tables(spark, schema_json, bronze_path, deduped_path)
 
-    raw = read_kafka(spark, args.bootstrap, args.starting_offsets, args.max_offsets_per_trigger)
+    raw = read_kafka(
+        spark,
+        args.bootstrap,
+        args.starting_offsets,
+        args.max_offsets_per_trigger,
+        args.fail_on_data_loss,
+    )
     decoded = decode_events(raw, schema_json)
 
     def write_raw(batch_df, batch_id):
         batch_df.persist()
         try:
-            good = flatten(is_decoded(batch_df))
+            good = flatten(is_decoded(batch_df, valid_ids))
             good.write.format("delta").mode("append").partitionBy("event_date").save(bronze_path)
 
-            bad_batch = is_not_decoded(batch_df).select(
+            bad_batch = is_not_decoded(batch_df, valid_ids).select(
                 F.col("topic").alias("source_topic"),
                 F.col("partition").alias("source_partition"),
                 F.col("offset").alias("source_offset"),

@@ -1,0 +1,82 @@
+{
+  "session_timezone_configured": "UTC",
+  "timezones_tried": [
+    "UTC",
+    "America/Denver",
+    "Asia/Kolkata",
+    "Australia/Sydney",
+    "Pacific/Chatham"
+  ],
+  "synthetic_cases": {
+    "us_spring_forward_2015": {
+      "epoch_ms": 1425797999000,
+      "exact": true
+    },
+    "us_spring_forward_plus_1s": {
+      "epoch_ms": 1425798000000,
+      "exact": true
+    },
+    "us_fall_back_2015": {
+      "epoch_ms": 1446361199000,
+      "exact": true
+    },
+    "us_fall_back_plus_1s": {
+      "epoch_ms": 1446361200000,
+      "exact": true
+    },
+    "eu_spring_forward_2015": {
+      "epoch_ms": 1427418000000,
+      "exact": true
+    },
+    "eu_fall_back_2015": {
+      "epoch_ms": 1445734800000,
+      "exact": true
+    },
+    "au_dst_2015": {
+      "epoch_ms": 1443889800000,
+      "exact": true
+    },
+    "epoch_zero": {
+      "epoch_ms": 0,
+      "exact": true
+    },
+    "source_min": {
+      "epoch_ms": 1430622004384,
+      "exact": true
+    },
+    "source_max": {
+      "epoch_ms": 1442545187788,
+      "exact": true
+    },
+    "pre_epoch": {
+      "epoch_ms": -86400000,
+      "exact": true
+    },
+    "far_future": {
+      "epoch_ms": 4102444800000,
+      "exact": true
+    }
+  },
+  "timezone_disagreements": {},
+  "tables": {
+    "bronze_events": {
+      "rows": 100000,
+      "mismatches": 0,
+      "all_exact": true
+    },
+    "silver_events": {
+      "rows": 100000,
+      "mismatches": 0,
+      "all_exact": true
+    }
+  },
+  "checks": {
+    "all_synthetic_cases_exact": true,
+    "dst_transition_cases_exact": true,
+    "result_independent_of_session_timezone": true,
+    "pipeline_runs_in_utc": true,
+    "bronze_all_exact": true,
+    "silver_all_exact": true
+  },
+  "passed": true
+}

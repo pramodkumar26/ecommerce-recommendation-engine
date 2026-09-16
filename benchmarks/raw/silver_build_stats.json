@@ -1,0 +1,18 @@
+{
+  "run_label": "silver",
+  "bounded_rebuild": true,
+  "start_date": "2015-05-10",
+  "end_date": "2015-05-12",
+  "bronze_rows_total": 100000,
+  "bronze_rows_in_scope": 28321,
+  "after_dedup": 28321,
+  "duplicates_removed": 0,
+  "rejected_rows": 0,
+  "rejection_reasons": {},
+  "silver_rows": 28321,
+  "enriched_rows": 13059,
+  "unenriched_rows": 15262,
+  "join_miss_rate_pct": 53.889,
+  "distinct_categories_seen": 675,
+  "partitions": 2
+}

@@ -89,6 +89,7 @@ services:
       - ./scripts:/opt/spark/project/scripts
       - ./producer:/opt/spark/project/producer
       - ./jars/ivy:/root/.ivy2
+      - ./data/raw:/opt/spark/project/data/raw:ro
       - ./data/delta:/opt/spark/project/data/delta
       - ./data/checkpoints:/opt/spark/project/data/checkpoints
     healthcheck:
@@ -130,6 +131,7 @@ services:
       - ./scripts:/opt/spark/project/scripts
       - ./producer:/opt/spark/project/producer
       - ./jars/ivy:/root/.ivy2
+      - ./data/raw:/opt/spark/project/data/raw:ro
       - ./data/delta:/opt/spark/project/data/delta
       - ./data/checkpoints:/opt/spark/project/data/checkpoints
     deploy:

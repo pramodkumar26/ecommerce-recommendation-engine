@@ -4,7 +4,8 @@
   "produced": {
     "emitted": 50000,
     "duplicates": 0,
-    "malformed_on_wire": 0
+    "malformed_on_wire": 0,
+    "modes": {}
   },
   "commits_before_kill": {
     "raw": 5,
@@ -13,12 +14,12 @@
   },
   "commits_after_restart": {
     "raw": 13,
-    "dedup": 11,
-    "metrics": 5
+    "dedup": 10,
+    "metrics": 4
   },
-  "bronze_rows_at_kill": 19980,
+  "bronze_rows_at_kill": 23976,
   "deduped_rows_at_kill": 3996,
-  "events_remaining_at_kill": 30020,
+  "events_remaining_at_kill": 26024,
   "bronze_rows_final": 50000,
   "bronze_distinct_event_ids_final": 50000,
   "deduped_rows_final": 50000,

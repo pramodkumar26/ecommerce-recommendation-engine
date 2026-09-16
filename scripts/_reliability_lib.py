@@ -54,10 +54,12 @@ def produce(limit, seed=42, duplicate_rate=0.0, delay_rate=0.0, malformed_rate=0
         "--delay-rate", str(delay_rate),
         "--malformed-rate", str(malformed_rate),
     ])
+    modes_match = re.search(r"malformed injected: \d+ (\{.*\})", out)
     return {
         "emitted": int(re.search(r"emitted (\d+) records", out).group(1)),
         "duplicates": int(re.search(r"duplicates injected: (\d+)", out).group(1)),
         "malformed_on_wire": int(re.search(r"malformed records on the wire: (\d+)", out).group(1)),
+        "modes": json.loads(modes_match.group(1).replace("'", '"')) if modes_match else {},
     }
 
 
@@ -67,13 +69,13 @@ def stream(run_label, extra=(), await_seconds=900, per_trigger=5000, background=
         "docker", "compose", "exec", "-T", "spark-master",
         "/opt/spark/bin/spark-submit",
         "--master", "spark://spark-master:7077",
-        "--driver-memory", "1g", "--executor-memory", "1g", "--total-executor-cores", "6",
+        "--driver-memory", "1g", "--executor-memory", "1600m", "--total-executor-cores", "6",
         "--packages", e["SPARK_PACKAGES"],
         "/opt/spark/project/streaming/jobs/stream_events.py",
         "--run-label", run_label,
         "--max-offsets-per-trigger", str(per_trigger),
         "--await-seconds", str(await_seconds),
-        "--idle-seconds", "35",
+        "--idle-seconds", "60",
         *extra,
     ]
     if background:

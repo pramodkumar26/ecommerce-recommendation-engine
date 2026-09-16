@@ -1,0 +1,178 @@
+Phase 7 Delta table schemas, read from _delta_log
+
+=== bronze_events ===
+  partitioned by: ['event_date']
+  event_id: string
+  visitor_id: long
+  item_id: long
+  event_type: string
+  event_timestamp: long
+  ingestion_timestamp: long
+  transaction_id: string
+  schema_version: integer
+  source_file: string
+  source_row_number: long
+  event_time: timestamp
+  ingestion_time: timestamp
+  source_topic: string
+  source_partition: integer
+  source_offset: long
+  schema_id: long
+  event_date: date
+
+=== deduped_events ===
+  partitioned by: ['event_date']
+  event_id: string
+  visitor_id: long
+  item_id: long
+  event_type: string
+  event_timestamp: long
+  ingestion_timestamp: long
+  transaction_id: string
+  schema_version: integer
+  source_file: string
+  source_row_number: long
+  event_time: timestamp
+  ingestion_time: timestamp
+  source_topic: string
+  source_partition: integer
+  source_offset: long
+  schema_id: long
+  event_date: date
+
+=== silver_events ===
+  partitioned by: ['event_date']
+  event_id: string
+  visitor_id: long
+  item_id: long
+  event_type: string
+  event_timestamp: long
+  ingestion_timestamp: long
+  transaction_id: string
+  schema_version: integer
+  source_file: string
+  source_row_number: long
+  event_time: timestamp
+  ingestion_time: timestamp
+  source_topic: string
+  source_partition: integer
+  source_offset: long
+  schema_id: long
+  event_date: date
+  category_id_valid_from_ms: long
+  available_valid_from_ms: long
+  category_id: long
+  available: integer
+  parent_category_id: long
+  has_category: boolean
+  enrichment_status: string
+
+=== silver_rejected ===
+  partitioned by: none
+  event_id: string
+  visitor_id: long
+  item_id: long
+  event_type: string
+  event_timestamp: long
+  ingestion_timestamp: long
+  transaction_id: string
+  schema_version: integer
+  source_file: string
+  source_row_number: long
+  event_time: timestamp
+  ingestion_time: timestamp
+  source_topic: string
+  source_partition: integer
+  source_offset: long
+  schema_id: long
+  event_date: date
+  rejection_reason: string
+
+=== dim_items_scd ===
+  partitioned by: ['property']
+  item_id: long
+  property: string
+  value: string
+  valid_from_ms: long
+  valid_to_ms: long
+  valid_from: timestamp
+  valid_to: timestamp
+  is_current: boolean
+
+=== dim_categories ===
+  partitioned by: none
+  category_id: long
+  parent_id: long
+
+=== fact_events ===
+  partitioned by: ['event_date']
+  event_id: string
+  visitor_id: long
+  item_id: long
+  event_type: string
+  event_time: timestamp
+  event_timestamp: long
+  category_id: long
+  parent_category_id: long
+  available: integer
+  enrichment_status: string
+  event_date: date
+
+=== fact_transactions ===
+  partitioned by: ['event_date']
+  event_id: string
+  transaction_id: string
+  visitor_id: long
+  item_id: long
+  event_time: timestamp
+  category_id: long
+  parent_category_id: long
+  event_date: date
+
+=== mart_item_funnel ===
+  partitioned by: none
+  item_id: long
+  views: long
+  carts: long
+  purchases: long
+  unique_visitors: long
+  last_known_category_id: long
+  view_to_cart_rate: double
+  cart_to_purchase_rate: double
+  view_to_purchase_rate: double
+
+=== mart_category_performance ===
+  partitioned by: none
+  category_id: long
+  parent_category_id: long
+  events: long
+  items: long
+  visitors: long
+  views: long
+  carts: long
+  purchases: long
+
+=== mart_daily_item_metrics ===
+  partitioned by: ['event_date']
+  event_date: date
+  item_id: long
+  events: long
+  unique_visitors: long
+  views: long
+  carts: long
+  purchases: long
+
+=== metrics_5min ===
+  partitioned by: none
+  window_start: timestamp
+  window_end: timestamp
+  events: long
+  unique_visitors_approx: long
+  unique_items_approx: long
+  views: long
+  carts: long
+  transactions: long
+  view_to_cart_rate: double
+  cart_to_purchase_rate: double
+  view_to_purchase_rate: double
+

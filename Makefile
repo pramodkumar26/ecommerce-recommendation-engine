@@ -4,7 +4,7 @@ PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
 SPARK_PACKAGES := $(shell grep '^SPARK_PACKAGES=' .env 2>/dev/null | cut -d= -f2-)
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq stream verify-streaming measure-lateness test-duplicates test-late-events test-restart verify-reliability clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq stream verify-streaming measure-lateness test-duplicates test-late-events test-restart verify-reliability scd silver gold verify-silver test-backfill bench-partitioning lakehouse test-timestamps test-rejects test-persistence full-enrichment regression clean
 
 help:
 	@echo "setup"
@@ -47,6 +47,22 @@ help:
 	@echo "  make test-late-events   watermark boundary, both sides"
 	@echo "  make test-restart       kill mid-stream, restart, prove no loss"
 	@echo "  make verify-reliability run all three reliability tests"
+	@echo ""
+	@echo "lakehouse (phase 7)"
+	@echo "  make scd              build dim_items_scd from property snapshots"
+	@echo "  make silver           bronze to silver, point-in-time enriched"
+	@echo "  make gold             silver to analytics marts"
+	@echo "  make lakehouse        scd, silver and gold in order"
+	@echo "  make verify-silver    prove no future enrichment"
+	@echo "  make test-backfill    bounded rebuild, surgical"
+	@echo "  make bench-partitioning  partitioned vs flat query comparison"
+	@echo ""
+	@echo "phase 7 verification"
+	@echo "  make test-timestamps    epoch ms round trip, timezone independence"
+	@echo "  make test-rejects       contract rejects fire and categorise"
+	@echo "  make test-persistence   cycles the stack, delta survives, rebuild matches"
+	@echo "  make full-enrichment    full 2.75M dataset end to end"
+	@echo "  make regression         every phase check, about 17 minutes"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -151,6 +167,48 @@ test-restart:
 	$(PY) scripts/test_restart.py
 
 verify-reliability: test-duplicates test-late-events test-restart
+
+SPARK_BATCH = docker compose exec -T spark-master /opt/spark/bin/spark-submit \
+	--master spark://spark-master:7077 --driver-memory 1g --executor-memory 2g \
+	--total-executor-cores 6 --packages $(SPARK_PACKAGES)
+LAKEHOUSE_LABEL = $(or $(RUN_LABEL),silver)
+
+scd:
+	$(SPARK_BATCH) /opt/spark/project/batch/jobs/build_item_scd.py --run-label $(LAKEHOUSE_LABEL)
+
+silver:
+	$(SPARK_BATCH) /opt/spark/project/batch/jobs/build_silver.py --run-label $(LAKEHOUSE_LABEL)
+
+gold:
+	$(SPARK_BATCH) /opt/spark/project/batch/jobs/build_gold.py --run-label $(LAKEHOUSE_LABEL)
+
+lakehouse: scd silver gold
+
+verify-silver:
+	$(PY) scripts/verify_silver.py
+
+test-backfill:
+	$(PY) scripts/test_backfill_range.py
+
+bench-partitioning:
+	$(SPARK_BATCH) /opt/spark/project/batch/jobs/benchmark_partitioning.py \
+		--run-label $(LAKEHOUSE_LABEL)
+
+test-timestamps:
+	$(SPARK_BATCH) /opt/spark/project/batch/jobs/test_timestamp_roundtrip.py \
+		--run-label $(LAKEHOUSE_LABEL)
+
+test-rejects:
+	$(PY) scripts/test_silver_rejects.py
+
+test-persistence:
+	$(PY) scripts/test_restart_persistence.py
+
+full-enrichment:
+	$(PY) scripts/run_full_enrichment.py
+
+regression:
+	$(PY) scripts/run_regression.py
 
 clean:
 	docker compose --profile streaming down -v

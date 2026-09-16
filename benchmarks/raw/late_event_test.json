@@ -4,18 +4,21 @@
   "produced": {
     "emitted": 50000,
     "duplicates": 0,
-    "malformed_on_wire": 0
+    "malformed_on_wire": 0,
+    "modes": {}
   },
   "generous_watermark": "24 hours",
   "tight_watermark": "1 minute",
   "generous_bronze_rows": 50000,
-  "generous_deduped_rows": 49720,
-  "generous_windowed_events": 49720,
+  "generous_deduped_rows": 49749,
+  "generous_windowed_events": 49749,
   "tight_bronze_rows": 50000,
-  "tight_deduped_rows": 48276,
-  "tight_windowed_events": 48276,
-  "events_dropped_by_tight_watermark": 1724,
-  "pct_dropped_by_tight_watermark": 3.448,
+  "tight_deduped_rows": 48257,
+  "tight_windowed_events": 48257,
+  "events_dropped_by_generous_watermark": 251,
+  "pct_dropped_by_generous_watermark": 0.502,
+  "events_dropped_by_tight_watermark": 1743,
+  "pct_dropped_by_tight_watermark": 3.486,
   "checks": {
     "bronze_has_everything_generous": true,
     "bronze_has_everything_tight": true,
@@ -23,9 +26,8 @@
     "generous_watermark_drop_rate_under_1pct": true,
     "tight_watermark_drops_events": true,
     "dropped_events_still_in_bronze": true,
-    "generous_dropped_events_still_in_bronze": true
+    "generous_dropped_events_still_in_bronze": true,
+    "no_duplicates_survive_either_run": true
   },
-  "passed": true,
-  "events_dropped_by_generous_watermark": 280,
-  "pct_dropped_by_generous_watermark": 0.56
+  "passed": true
 }

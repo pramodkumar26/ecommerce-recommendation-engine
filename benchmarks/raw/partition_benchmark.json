@@ -1,0 +1,28 @@
+{
+  "partitioned": {
+    "files_in_table": 15,
+    "files_scanned_for_one_day": 1,
+    "rows_matched": 16178,
+    "count_median_ms": 214.3,
+    "count_best_ms": 183.3,
+    "groupby_median_ms": 166.0,
+    "groupby_best_ms": 155.3
+  },
+  "unpartitioned": {
+    "files_in_table": 6,
+    "files_scanned_for_one_day": 5,
+    "rows_matched": 16178,
+    "count_median_ms": 182.4,
+    "count_best_ms": 141.1,
+    "groupby_median_ms": 157.0,
+    "groupby_best_ms": 135.1
+  },
+  "comparison": {
+    "target_date": "2015-05-11",
+    "file_skip_ratio": 5.0,
+    "count_speedup": 0.85,
+    "groupby_speedup": 0.95,
+    "pruning_observed": true,
+    "rows_agree": true
+  }
+}

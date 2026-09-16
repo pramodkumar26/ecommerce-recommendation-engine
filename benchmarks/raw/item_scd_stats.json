@@ -1,0 +1,28 @@
+{
+  "distinct_snapshots": 18,
+  "first_snapshot_ms": 1431226800000,
+  "last_snapshot_ms": 1442113200000,
+  "snapshot_gaps_days": [
+    7.0,
+    14.0
+  ],
+  "property_rows_total": 20275902,
+  "tracked_properties": [
+    "categoryid",
+    "available"
+  ],
+  "scd_rows": 1031473,
+  "scd_by_property": {
+    "categoryid": {
+      "intervals": 442672,
+      "items": 417053
+    },
+    "available": {
+      "intervals": 588801,
+      "items": 417053
+    }
+  },
+  "open_intervals": 834106,
+  "categories": 1669,
+  "compression_ratio": 2.222
+}

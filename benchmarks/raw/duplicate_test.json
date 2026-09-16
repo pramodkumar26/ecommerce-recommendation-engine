@@ -4,7 +4,8 @@
   "produced": {
     "emitted": 52389,
     "duplicates": 2389,
-    "malformed_on_wire": 0
+    "malformed_on_wire": 0,
+    "modes": {}
   },
   "expected_events_from_source": 50000,
   "expected_windows_in_source": 777,

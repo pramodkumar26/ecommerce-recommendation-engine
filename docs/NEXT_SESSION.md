@@ -7,82 +7,133 @@ the log at the bottom.
 ## Current state
 
 ```text
-phase:                Phase 6 complete
-last task completed:  Watermark measured, dedup, late-event policy, checkpoint restart proven.
-branch / commit:      main, 34773b0
-services running:     streaming profile up, no Spark application running
-services stopped:     all test streams self-terminated and released their cores
-next command to run:  make verify-reliability
-unresolved error:     none
-next test:            Phase 7, historical event never receives a future property value
-Azure left alive:     none, no Azure resources provisioned yet
+phase:                Phase 7 LOCAL COMPLETE, ADLS sync deferred to Azure access
+last task completed:  Integration fixes, medallion layers, full-dataset enrichment verified.
+branch / commit:      main, Phase 7 uncommitted at time of writing, see below
+services running:     streaming profile up (kafka, schema-registry, spark, redis)
+services stopped:     no Spark application running, all batch jobs finished
+next command to run:  make up && .venv/bin/python scripts/run_regression.py
+unresolved error:     none, 12 of 12 regression checks green
+Azure left alive:     none, no Azure resources provisioned
 ```
 
-## Phase 6 result
+## Verification commands
 
-Definition of done, all four met.
+```bash
+.venv/bin/python scripts/run_regression.py          # all 12 checks, about 17 minutes
+.venv/bin/python -m pytest tests/ -q                # validation parity, under a second
+.venv/bin/python scripts/run_full_enrichment.py     # full 2.75M dataset, about 8 minutes
+```
 
-| Requirement | Result |
+Individual checks, if the suite is too slow:
+
+```bash
+.venv/bin/python scripts/verify_silver.py           # point-in-time, no future leakage
+.venv/bin/python scripts/test_silver_rejects.py     # contract rejects fire and categorise
+.venv/bin/python scripts/test_backfill_range.py     # bounded rebuild is surgical
+.venv/bin/python scripts/test_restart_persistence.py  # cycles the stack, Delta survives
+make verify-streaming                               # phase 5
+make verify-reliability                             # phase 6
+```
+
+## Row counts
+
+Full dataset, run label `fulldata`:
+
+```text
+source events        2,756,101
+bronze_events        2,756,101
+silver_events        2,756,101
+enriched with category  2,099,173   (76.165%)
+unenriched (NULL)         656,928   (23.835%)
+rejected                        0   (clean source, no injection)
+```
+
+Reject path, run label `rejects`, 30,000 events with 6% malformed injection:
+
+```text
+produced                30,000
+wire-level, never decoded  1,170   raw_garbage + unknown_schema_id
+bronze_events           28,830
+silver_rejected            610   203 negative_visitor_id
+                               192 event_timestamp_out_of_range
+                               215 non_transaction_with_transaction_id
+silver_events           28,220
+```
+
+## Phase 7 status
+
+| Definition of done | Status |
 |---|---|
-| injected duplicate does not alter final count | 2,389 removed, 777 windows exact |
-| within-watermark event handled correctly | 0.56% dropped at 24h vs 3.45% at 1 min |
-| Spark restarts from checkpoint | resumed at 19,980 of 50,000, finished at 50,000 |
-| no silent loss in controlled test | 0 lost, 0 duplicates introduced |
+| Bronze immutable decoded history | done |
+| contract validation between Bronze and Silver | done, parity tested |
+| durable reject path for decodable-but-invalid | done, `silver_rejected`, categorised |
+| one valid row per deterministic event_id | done |
+| canonical epoch timestamps exact, UTC explicit | done, TIME-ROUNDTRIP-001 |
+| point-in-time enrichment, no future values | done, 0 of 2,756,101 |
+| enrichment miss rate measured | done, 23.835% category, 14.266% any-property |
+| Gold built from Silver, reconciles | done |
+| Silver and Gold deterministically rebuildable | done |
+| local Delta persists across restart | done, LAKEHOUSE-PERSIST-001 |
+| failOnDataLoss deliberately configured | done, defaults true |
+| replay vs live watermark semantics documented | done, `docs/lakehouse.md` |
+| Phase 1-6 tests still pass | done, 12 of 12 |
+| **scheduled local-to-ADLS sync** | **BLOCKED on Azure** |
+| **cloud timing recorded separately** | **BLOCKED on Azure** |
 
-Phase 5's 13 checks were re-run afterwards and still pass, so the restructure caused no
-regression. Evidence in `docs/evidence/phase6/`. Four ledger rows added, pinned to `34773b0`.
+Local work is complete. The phase closes when the two Azure items land.
 
-### The watermark, measured instead of guessed
+## Integration issues fixed this session
 
-`streaming/jobs/measure_lateness.py` measures how far behind the running maximum event time each
-record actually arrives, which is exactly what Spark compares against.
+Five real problems, three found while fixing the other two.
 
-```text
-p50  104 min    p90  737 min    p95  845 min    p99  916 min    max  959 min (16.0 h)
-```
+**failOnDataLoss was hardcoded false.** Now defaults true with an explicit `--allow-data-loss`
+escape hatch for the topic-recreation recovery case. A no-silent-loss claim cannot have silent
+loss as its default.
 
-Nothing exceeded 24 hours at any batch size, so the watermark is 24 hours. The roadmap's
-suggested 10 minute development default would have dropped 73% of records here.
+**The DLQ router never committed offsets.** Confirmed: `enable.auto.commit=false` with no commit
+call. Rather than turning it into a service, it is documented as what it actually is, a Phase 4
+verification harness that must re-read the whole topic each run. The Spark Bronze to Silver path
+owns durable reject handling, with checkpoints. Reasoning recorded in the module docstring.
 
-Two things worth remembering. This is event-time lateness created by replay compression, not
-network delay; a live deployment would see seconds. And smaller batches produce MORE lateness,
-p50 220 min at 1,000 per trigger versus 0 at 20,000, because with fewer larger batches most
-records have no preceding maximum to be late against. That is why the Phase 5 attempt at smaller
-batches made things worse.
+**Spark was not validating schema ids.** `from_avro` takes a static schema and ignores the
+Confluent header entirely, so 613 records carrying an unregistered schema id decoded against v1
+and reached Bronze looking valid. The registry is now queried at startup and untrusted ids route
+to `undecodable`.
 
-### The architecture changed, and why
+**`run_bounded` could not tell a dead query from a finished one.** A query killed by executor
+memory truncated a run at 3 of 5 batches and the job exited zero reporting success. It now calls
+`query.exception()` and raises. Executor memory also went 1g to 1600m, since 6 cores sharing 1g
+caused the OOM.
 
-The job is now three queries chained through Delta:
+**Idle detection summed `numInputRows`.** With three chained queries a Delta source can commit a
+zero-row batch while still working, so all three read zero at once and the timer started with
+data pending. Now tracks batch ids, which only advance when a query is genuinely working.
 
-```text
-Kafka   -> bronze_events     stateless, keeps duplicates
-Bronze  -> deduped_events    dropDuplicates on event_id, 24h watermark
-deduped -> metrics_5min      5 min windows, update mode, MERGE on window_start
-```
+Also corrected: the `windowed_metrics` docstring contradicted itself after three rewrites, and
+STREAM-LATENESS-001 was labelled "measured" when it is reconstructed, now "MODELED replay
+lateness" with the empirical counterpart named.
 
-Spark supports chaining multiple stateful operators only in append mode. Putting dedup and the
-windowed aggregate in one update-mode query silently produced wrong results: 76% of events
-vanished and the 24% that survived were exactly the records with zero lateness. Switching that
-query to append mode then meant the aggregate lagged a full day of event time behind the
-watermark, so on a 65 hour fixture almost nothing ever closed.
+## The 9.5 point discrepancy that was not a bug
 
-Splitting them gives each query at most one stateful operator, restores the proven update mode
-plus MERGE aggregate, and matches the medallion layering Phase 7 needs anyway.
+The full-dataset run first reported a 23.835% enrichment miss rate against Phase 2's 14.266%.
+Investigated rather than adjusted.
 
-Two knock-on fixes: chained Delta streaming reads fail with DELTA_SCHEMA_NOT_SET until the table
-has been written once, so `ensure_tables` bootstraps both tables empty with the exact schema.
-Worker cores went 4 to 6 because three queries on four cores starve each other.
+The two figures answer different questions. Phase 2 asked whether an item had **any** property
+at or before the event, across all 1,104 property names. Silver asks whether it has a
+**categoryid**. 263,730 events involve items with some property recorded but no category yet.
 
-### A test assertion that was wrong, not the code
+Reproducing Phase 2's exact definition in Spark gives 14.266%, a difference of 0.000 points,
+with every component matching: 255,585 items with no property, 137,613 events preceding their
+item's first property. Two independent implementations agreeing to the record.
 
-The late-event test first asserted the 24 hour watermark loses nothing, and it dropped 280
-events. That run deliberately injects 10% extra delay on top of replay lateness, so a small tail
-falling outside is the policy working. The zero-loss case is proven separately by the duplicate
-test, where the same watermark with normal traffic yields exactly 50,000 deduplicated rows.
+Both are now recorded. ENRICH-ANYPROP-001 is the correctness check. ENRICH-CATEGORY-001 at
+23.835% is the number to quote for enrichment coverage; using 14.266% would overstate it by 9.6
+points.
 
 ## Phase order change
 
-Phase 1B, Terraform and Azure, is deferred. The university tenant (colorado.edu) blocks the
+Phase 1B, Terraform and Azure, is deferred, and Phase 7 is now also partially blocked on it. The university tenant (colorado.edu) blocks the
 Azure CLI application, so `az login` fails with AADSTS50105 and Terraform cannot authenticate.
 An Azure for Students subscription exists with 100 USD of credit valid until 2027-09-15, so the
 credit is worth keeping. A request is with CU OIT to either grant Azure CLI access or allow app
@@ -182,29 +233,35 @@ answer is a custom image.
 
 ## Next up
 
-Phase 7, Bronze / Silver / Gold and point-in-time enrichment. Silver is where the actual data
-cleaning happens: type and timestamp normalization, deduplication, invalid-record removal, and
-the point-in-time item property join. Then Gold analytics and training tables, a time-based
-partition strategy, and the scheduled ADLS sync.
+Azure access was reported as ticketed with CU OIT and expected within 2 to 3 hours. Two paths:
 
-Most of Phase 7 is local and does not need Azure. Only the scheduled sync and the
-cloud-integration smoke test do, so start on Silver and Gold and slot the sync in when the
-Azure CLI question is resolved.
+**If Azure access works.** Close Phase 7 by adding the scheduled local-to-ADLS sync and a
+separately labelled cloud-integration smoke test, then Phase 1B for the Terraform foundation.
+Do NOT write Spark micro-batches directly to ADLS; that would mix WAN latency and Azure
+transaction cost into the local streaming benchmark. Sync selected Delta snapshots on a
+schedule, and record cloud timing under its own metric ids, never merged with local figures.
 
-Phase 7 is done when a historical event never receives a property value whose timestamp is in
-the future, Bronze can regenerate Silver for a bounded range, one local-to-ADLS sync completes,
-and cloud timing is recorded separately from local streaming timing.
+Pinned versions for the ABFS work, verified in this repo, not assumed:
 
-What Phase 2 already established for this phase: item properties are 18 discrete weekly
-snapshots rather than a change log, so the join is an as-of lookup against 18 known dates. The
-measured miss rate is 14.27%, and those events get null enrichment rather than being backfilled
-from a later snapshot, which would be the exact leakage the join exists to prevent.
+```text
+Spark 3.5.7, Hadoop 3.3.4 (bundled), Delta 3.3.2, Scala 2.12, Java 17
+hadoop-azure must match Hadoop 3.3.4
+```
 
-This phase carries the roadmap's only budgeted risk day, for ABFS and JAR compatibility. The
-connector chain is already pinned and recorded in `docs/ENVIRONMENT.md`, and Spark 3.5.7 bundles
-Hadoop 3.3.4, so `hadoop-azure` must match 3.3.4.
+The roadmap budgets a day for exactly this dependency chain, and Apple Silicon can add JAR
+friction. Do not start it while the tenant question is open.
 
-Estimate: 3 to 4 days.
+**If Azure access does not work.** Phase 8, backfill and replay, needs nothing cloud. Shared
+transformation logic, a bounded backfill command, and one intentional transformation change
+reprocessed from Bronze with before and after counts. `test_backfill_range.py` already proves
+the surgical rebuild works, so Phase 8 is mostly changing a rule and showing Gold updates.
+
+First command either way:
+
+```bash
+make up
+.venv/bin/python scripts/run_regression.py
+```
 
 ## Open questions
 

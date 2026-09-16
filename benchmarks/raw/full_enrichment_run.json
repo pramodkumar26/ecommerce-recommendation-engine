@@ -1,0 +1,108 @@
+{
+  "label": "fulldata",
+  "full_limit": 2756101,
+  "per_trigger": 50000,
+  "phase2_expected_miss_rate_pct": 14.266,
+  "started_utc": "2026-09-16T17:34:53Z",
+  "stages": {
+    "reset_topics": {
+      "status": "ok",
+      "seconds": 2.5,
+      "result": "reset"
+    },
+    "produce_full_dataset": {
+      "status": "ok",
+      "seconds": 115.1,
+      "result": {
+        "emitted": 2756101,
+        "duplicates": 0,
+        "malformed_on_wire": 0,
+        "modes": {}
+      }
+    },
+    "stream_to_bronze": {
+      "status": "ok",
+      "seconds": 241.3,
+      "result": "streamed"
+    },
+    "build_item_scd": {
+      "status": "ok",
+      "seconds": 20.9,
+      "result": "built"
+    },
+    "build_silver": {
+      "status": "ok",
+      "seconds": 56.0,
+      "result": "built"
+    },
+    "measure_enrichment": {
+      "status": "ok",
+      "seconds": 23.9,
+      "result": "measured"
+    }
+  },
+  "silver_stats": {
+    "run_label": "fulldata",
+    "bounded_rebuild": false,
+    "start_date": null,
+    "end_date": null,
+    "bronze_rows_total": 2756101,
+    "bronze_rows_in_scope": 2756101,
+    "after_dedup": 2756101,
+    "duplicates_removed": 0,
+    "rejected_rows": 0,
+    "rejection_reasons": {},
+    "silver_rows": 2756101,
+    "enriched_rows": 2099173,
+    "unenriched_rows": 656928,
+    "join_miss_rate_pct": 23.835,
+    "distinct_categories_seen": 1139,
+    "partitions": 139
+  },
+  "enrichment": {
+    "run_label": "fulldata",
+    "total_events": 2756101,
+    "any_property": {
+      "joinable": 2362903,
+      "item_has_no_such_property": 255585,
+      "event_precedes_first_occurrence": 137613,
+      "miss_rate_pct": 14.266
+    },
+    "categoryid": {
+      "joinable": 2099173,
+      "item_has_no_such_property": 255585,
+      "event_precedes_first_occurrence": 401343,
+      "miss_rate_pct": 23.835
+    },
+    "phase2_expected_any_property_pct": 14.266,
+    "difference_from_phase2_points": 0.0,
+    "events_with_a_property_but_no_category_yet": 263730,
+    "silver_rows": 2756101,
+    "silver_enriched": 2099173,
+    "silver_miss_rate_pct": 23.835,
+    "silver_rows_enriched_from_the_future": 0,
+    "checks": {
+      "reproduces_phase2_any_property_rate": true,
+      "categoryid_rate_is_higher_as_expected": true,
+      "same_items_lack_any_property": true,
+      "no_future_enrichment_in_silver": true,
+      "silver_enrichment_matches_source_possibility": true
+    },
+    "passed": true
+  },
+  "finished_utc": "2026-09-16T17:42:33Z",
+  "any_property_miss_rate_pct": 14.266,
+  "categoryid_miss_rate_pct": 23.835,
+  "difference_from_phase2_pct_points": 0.0,
+  "tolerance_pct_points": 0.01,
+  "total_seconds": 459.7,
+  "checks": {
+    "all_stages_completed": true,
+    "bronze_holds_expected_rows": true,
+    "no_rows_lost_through_silver": true,
+    "any_property_rate_reproduces_phase2": true,
+    "no_future_enrichment": true,
+    "enrichment_measurement_passed": true
+  },
+  "passed": true
+}

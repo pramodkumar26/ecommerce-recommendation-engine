@@ -1,0 +1,48 @@
+{
+  "limit": 30000,
+  "malformed_rate": 0.06,
+  "produced": {
+    "emitted": 30000,
+    "duplicates": 0,
+    "malformed_on_wire": 1780,
+    "modes": {
+      "raw_garbage": 557,
+      "unknown_schema_id": 613,
+      "invalid_field:negative_visitor": 203,
+      "invalid_field:zero_timestamp": 192,
+      "invalid_field:orphan_transaction_id": 215
+    }
+  },
+  "injected_modes": {
+    "raw_garbage": 557,
+    "unknown_schema_id": 613,
+    "invalid_field:negative_visitor": 203,
+    "invalid_field:zero_timestamp": 192,
+    "invalid_field:orphan_transaction_id": 215
+  },
+  "expected_silver_rejects": {
+    "negative_visitor_id": 203,
+    "event_timestamp_out_of_range": 192,
+    "non_transaction_with_transaction_id": 215
+  },
+  "actual_silver_rejects": {
+    "non_transaction_with_transaction_id": 215,
+    "negative_visitor_id": 203,
+    "event_timestamp_out_of_range": 192
+  },
+  "expected_undecodable_wire_level": 1170,
+  "bronze_rows": 28830,
+  "silver_rows": 28220,
+  "rejected_rows": 610,
+  "expected_valid_rows": 28220,
+  "checks": {
+    "bronze_excludes_undecodable": true,
+    "silver_rejects_fired_at_all": true,
+    "reject_count_matches_injected": true,
+    "reject_categories_match": true,
+    "all_three_invalid_modes_present": true,
+    "valid_rows_reach_silver": true,
+    "no_valid_record_lost": true
+  },
+  "passed": true
+}

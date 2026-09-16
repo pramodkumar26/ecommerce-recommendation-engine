@@ -69,10 +69,22 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 | STREAM-BRONZE-001 | events reaching Bronze from Kafka | 50,000 of 50,000, all ids unique | 2026-09-15 | `34773b0` | `streaming_verification.json` |
 | STREAM-WINDOW-001 | 5 minute event-time window counts vs source | 777 of 777 windows exact | 2026-09-15 | `34773b0` | `streaming_verification.json` |
 | STREAM-APPROX-001 | HyperLogLog distinct visitor accuracy | 0.28% mean, 3.06% worst | 2026-09-15 | `34773b0` | `streaming_verification.json` |
-| STREAM-LATENESS-001 | measured event-time lateness distribution | p50 104 min, p95 845 min, max 959 min | 2026-09-15 | `34773b0` | `lateness_distribution.json` |
+| STREAM-LATENESS-001 | MODELED replay lateness distribution | p50 104 min, p95 845 min, max 959 min | 2026-09-15 | `34773b0` | `lateness_distribution.json` |
 | RECOVERY-DEDUP-001 | injected duplicates removed from the aggregate | 2,389 of 2,389, 777 windows exact | 2026-09-15 | `34773b0` | `duplicate_test.json` |
 | RECOVERY-LATE-001 | events dropped by watermark, two settings | 0.56% at 24h, 3.45% at 1 min | 2026-09-15 | `34773b0` | `late_event_test.json` |
 | RECOVERY-RESTART-001 | checkpoint restart, loss and inflation | 0 lost, 0 duplicated, 50,000 of 50,000 | 2026-09-15 | `34773b0` | `restart_test.json` |
+| SILVER-PITJOIN-001 | rows enriched from a future property | 0 of 100,000, matches independent as-of join | 2026-09-16 | pending | `silver_verification.json` |
+| SILVER-SCD-001 | property snapshots collapsed to validity intervals | 2.29M rows to 1.03M intervals | 2026-09-16 | pending | `item_scd_stats.json` |
+| BACKFILL-RANGE-001 | bounded Silver rebuild, surgical | 2 rebuilt identical, 5 untouched | 2026-09-16 | pending | `backfill_range_test.json` |
+| STORAGE-PARTITION-001 | time partitioning, files skipped vs wall time | 5x fewer files, 0.85x speed | 2026-09-16 | pending | `partition_benchmark.json` |
+| ENRICH-ANYPROP-001 | full-dataset any-property miss rate, vs Phase 2 | 14.266%, 0.0 point difference | 2026-09-16 | pending | `enrichment_measurement.json` |
+| ENRICH-CATEGORY-001 | full-dataset categoryid enrichment miss rate | 23.835% (2,099,173 of 2,756,101 enriched) | 2026-09-16 | pending | `enrichment_measurement.json` |
+| SILVER-LEAK-002 | rows enriched from the future, full dataset | 0 of 2,756,101 | 2026-09-16 | pending | `enrichment_measurement.json` |
+| SILVER-REJECT-001 | contract rejects fired and categorised | 610 of 610, 3 categories exact | 2026-09-16 | pending | `silver_rejects_test.json` |
+| TIME-ROUNDTRIP-001 | epoch ms to timestamp and back, exactness | 0 mismatches, timezone independent | 2026-09-16 | pending | `timestamp_roundtrip.json` |
+| STREAM-FULLSCALE-001 | full dataset through the streaming chain | 2,756,101 events in 238.1 s | 2026-09-16 | pending | `full_enrichment_run.json` |
+| LAKEHOUSE-PERSIST-001 | Delta survives restart, rebuild reproduces | 10 tables identical, both checks | 2026-09-16 | pending | `restart_persistence_test.json` |
+| REGRESSION-SUITE-001 | phases 3 to 7 verification suite | 12 of 12 passed | 2026-09-16 | pending | `regression_suite.json` |
 
 The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 `8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
@@ -434,7 +446,8 @@ notes: exact countDistinct is rejected on a streaming aggregate because it needs
 
 ```text
 metric_id: STREAM-LATENESS-001
-metric: how far behind the running maximum event time each record arrives
+metric: MODELED replay lateness, how far behind the running maximum event time each record
+        is reconstructed to have arrived
 value: p50 104 min, p90 737 min, p95 845 min, p99 916 min, max 959 min (16.0 h)
 date: 2026-09-15
 git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
@@ -443,7 +456,13 @@ dataset slice: 50,000 event fixture, modelled at 5,000 per trigger
 command / test: streaming/jobs/measure_lateness.py
 config: batch composition reconstructed from Bronze source_partition and source_offset
 evidence: benchmarks/raw/lateness_distribution.json
-notes: this is EVENT-TIME lateness created by replay compression, not network delay. 138 days
+notes: MODELED, not directly observed. streaming/jobs/measure_lateness.py reconstructs
+       micro-batch composition analytically from Bronze source_partition and source_offset; it
+       does not read Spark's own per-batch arrival records. Treat these as a model of replay
+       behaviour, not as production arrival latency. The EMPIRICAL counterpart is
+       RECOVERY-LATE-001, which measures what the pipeline actually dropped.
+
+       This is EVENT-TIME lateness created by replay compression, not network delay. 138 days
        of 2015 are pushed through in minutes, so records legitimately sit hours behind the
        running maximum. A live deployment would see seconds. Counterintuitively smaller batches
        produce more lateness: p50 is 220 min at 1,000 per trigger and 0 at 20,000, because with
@@ -512,4 +531,256 @@ notes: killed at 19,980 of 50,000 rows in Bronze with 30,020 remaining. Commits 
        than restarting from the beginning. Final state is exactly 50,000 Bronze rows, 50,000
        distinct event ids, 50,000 deduplicated rows, and 777 windows. Not a recovery TIME
        measurement; that belongs to Phase 21.
+```
+
+### ENRICH-ANYPROP-001
+
+```text
+metric_id: ENRICH-ANYPROP-001
+metric: full-dataset share of events with no item property at or before the event time
+value: 14.266% (2,362,903 of 2,756,101 joinable)
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: complete Retailrocket source, all 2,756,101 events, all 1,104 property names
+command / test: batch/jobs/measure_enrichment.py --run-label fulldata
+config: Spark range join against dim_items_scd validity intervals
+evidence: benchmarks/raw/enrichment_measurement.json
+notes: this is the CORRECTNESS CHECK for the point-in-time join, not the headline enrichment
+       number. It reproduces DATASET-PITJOIN-001, measured independently with pandas in Phase 2,
+       to a difference of 0.000 points. Every component matches exactly: 255,585 events whose
+       item has no property record at all, and 137,613 events preceding their item's first
+       property. Two independent implementations agreeing to the record is what makes the join
+       trustworthy.
+```
+
+### ENRICH-CATEGORY-001
+
+```text
+metric_id: ENRICH-CATEGORY-001
+metric: full-dataset share of events that cannot be enriched with a category
+value: 23.835% (2,099,173 of 2,756,101 enriched)
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: complete Retailrocket source
+command / test: batch/jobs/measure_enrichment.py --run-label fulldata
+config: as above, categoryid property only
+evidence: benchmarks/raw/enrichment_measurement.json
+notes: THIS is the number that matters for the recommender, and it is higher than
+       ENRICH-ANYPROP-001 for a real reason rather than a defect. 263,730 events involve an item
+       that already has some property recorded but does not yet have a category. Quoting 14.266%
+       as the enrichment rate would overstate coverage by 9.6 points.
+
+       Do not compare this figure to DATASET-PITJOIN-001. They answer different questions, and
+       conflating them produced an apparent 9.5 point regression during Phase 7 that turned out
+       to be a category error, not a bug.
+
+       Silver produced exactly 2,099,173 enriched rows, matching what the source makes possible.
+       The remaining rows are NULL, never future-filled.
+```
+
+### SILVER-LEAK-002
+
+```text
+metric_id: SILVER-LEAK-002
+metric: Silver rows carrying a property whose validity begins after the event, full dataset
+value: 0 of 2,756,101
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: complete Retailrocket source
+command / test: batch/jobs/measure_enrichment.py --run-label fulldata
+config: assertion evaluated over every row, not a sample
+evidence: benchmarks/raw/enrichment_measurement.json
+notes: extends SILVER-PITJOIN-001, which proved the same property over 100,000 rows against an
+       independent pandas merge_asof. This is the full-scale confirmation.
+```
+
+### SILVER-REJECT-001
+
+```text
+metric_id: SILVER-REJECT-001
+metric: contract-invalid records routed to silver_rejected with the correct category
+value: 610 of 610, split 203 / 192 / 215 exactly as injected
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 30,000 events, 6% malformed injection, seed 42
+command / test: scripts/test_silver_rejects.py
+config: simulator invalid_field modes mapped to Silver rejection reasons
+evidence: benchmarks/raw/silver_rejects_test.json
+notes: before this test the rejection rules had never once executed, because every earlier
+       fixture was clean and rejected_rows was 0 on every run. Rules that have never fired are
+       not tested rules.
+
+       Also confirms the two reject surfaces are distinct: 1,170 wire-level records
+       (raw_garbage, unknown_schema_id) never reach Silver at all, while 610 decodable but
+       contract-invalid records do and are categorised.
+```
+
+### TIME-ROUNDTRIP-001
+
+```text
+metric_id: TIME-ROUNDTRIP-001
+metric: epoch millis to Spark timestamp and back, exactness and timezone independence
+value: 0 mismatches across 200,000 table rows and 12 synthetic cases, identical in 5 timezones
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: Bronze and Silver `silver` label, plus crafted DST-boundary instants
+command / test: batch/jobs/test_timestamp_roundtrip.py
+config: timestamp_millis then unix_millis, run under UTC, America/Denver, Asia/Kolkata,
+        Australia/Sydney, Pacific/Chatham
+evidence: benchmarks/raw/timestamp_roundtrip.json
+notes: validates the decision to store event time as a plain Avro long rather than the
+       timestamp-millis logical type. Cases include both sides of US and EU daylight-saving
+       transitions and Pacific/Chatham, which has a 45 minute offset and observes DST. All five
+       session timezones produce byte-identical results, so correctness does not depend on where
+       the host machine is.
+```
+
+### STREAM-FULLSCALE-001
+
+```text
+metric_id: STREAM-FULLSCALE-001
+metric: complete dataset through Kafka, the three-query Spark chain, and into Bronze
+value: 2,756,101 events in 238.1 s
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: complete Retailrocket source
+command / test: scripts/run_full_enrichment.py
+config: 50,000 maxOffsetsPerTrigger, 56 micro-batches, driver 1g, executor 1600m, 6 cores,
+        local Delta sink
+evidence: benchmarks/raw/full_enrichment_run.json
+notes: this is a WALL-CLOCK STAGE TIMING for one run, not a sustained throughput benchmark, and
+       must not be quoted as an events-per-second figure. It was not run repeatedly, latency
+       percentiles were not captured, and nothing was tuned. Phase 21 owns throughput and
+       latency measurement under controlled load. Recorded here only as evidence that the
+       pipeline handles the full dataset rather than only fixtures.
+
+       Other stages: producer 115.0 s, item SCD 20.4 s, Silver 57.0 s.
+```
+
+### LAKEHOUSE-PERSIST-001
+
+```text
+metric_id: LAKEHOUSE-PERSIST-001
+metric: Delta survives a full service restart, and rebuilds reproduce byte-identical content
+value: 10 tables identical after restart, 10 identical after rebuild
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: `silver` label lakehouse, 100,000 events
+command / test: scripts/test_restart_persistence.py
+config: docker compose down, verify files on host with zero containers, up, fingerprint,
+        rebuild Silver and Gold, fingerprint again
+evidence: benchmarks/raw/restart_persistence_test.json
+notes: fingerprints are order-independent sums over per-row hashes, so a rebuild writing the
+       same content into a different file layout still compares equal while any content change
+       does not. Comparing row counts alone would pass even if every value changed.
+```
+
+### REGRESSION-SUITE-001
+
+```text
+metric_id: REGRESSION-SUITE-001
+metric: every phase verification run together after the Phase 7 changes
+value: 12 of 12 passed in 1000.2 s
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: each check builds its own fixture
+command / test: scripts/run_regression.py
+config: phases 3, 4, 5, 6 and 7 checks plus the validation parity unit tests
+evidence: benchmarks/raw/regression_suite.json
+notes: run because Phase 7 changed behaviour earlier phases depend on: failOnDataLoss now
+       defaults true, Spark validates schema ids against the registry, idle detection watches
+       batch ids, and a failed query raises instead of exiting zero. No earlier guarantee
+       regressed.
+```
+
+### SILVER-PITJOIN-001
+
+```text
+metric_id: SILVER-PITJOIN-001
+metric: Silver rows enriched with a property whose validity begins after the event
+value: 0 of 100,000, and 0 disagreements against an independent as-of join
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: source rows 100,000 to 200,000, chosen to straddle the first property snapshot
+command / test: scripts/verify_silver.py
+config: range join on dim_items_scd half-open [valid_from, valid_to), left join so unmatched
+        events survive with null
+evidence: benchmarks/raw/silver_verification.json
+notes: expectations recomputed with pandas merge_asof directly from the CSVs, so Spark is not
+       grading itself. Spark and pandas both enriched exactly 31,408 rows with zero
+       disagreements across all 100,000 events. The tightest case was an event 9,663 ms AFTER
+       its property snapshot, positive, so nothing leaks at the boundary either.
+
+       The 68.6% miss rate on THIS slice is not the project's miss rate and must not be quoted
+       as one. This fixture sits early in the timeline where many items have no property
+       snapshot yet. The full-dataset figure is DATASET-PITJOIN-001 at 14.27%.
+```
+
+### SILVER-SCD-001
+
+```text
+metric_id: SILVER-SCD-001
+metric: item property snapshots collapsed into validity intervals
+value: 2,291,853 tracked property rows to 1,031,473 intervals, 2.22x compression
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: all categoryid and available rows across both property files
+command / test: batch/jobs/build_item_scd.py
+config: 18 discrete snapshots collapsed where the value did not change between them
+evidence: benchmarks/raw/item_scd_stats.json
+notes: categoryid produces 442,672 intervals over 417,053 items, so 1.06 per item. Categories
+       barely change, roughly 25,600 changes in total. available produces 588,801 intervals,
+       1.41 per item. Open intervals total 834,106, which is exactly 417,053 items times 2
+       properties, confirming every item-property pair has precisely one current interval.
+```
+
+### BACKFILL-RANGE-001
+
+```text
+metric_id: BACKFILL-RANGE-001
+metric: bounded Silver rebuild from Bronze, correctness and blast radius
+value: 2 partitions rebuilt byte-identically, 5 outside the range untouched
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: 100,000 event fixture across 7 daily partitions, rebuild window 2015-05-10 to
+               2015-05-12 exclusive
+command / test: scripts/test_backfill_range.py
+config: Delta replaceWhere on an event_date predicate
+evidence: benchmarks/raw/backfill_range_test.json
+notes: partitions fingerprinted before and after with an order-independent per-row hash, so a
+       rewrite preserving content is provably identical regardless of file layout. Total row
+       count unchanged at 100,000, partition set unchanged, Delta version advanced 0 to 1.
+       Proves Silver is a pure function of Bronze plus the SCD, which is what Phase 8 depends on.
+```
+
+### STORAGE-PARTITION-001
+
+```text
+metric_id: STORAGE-PARTITION-001
+metric: time partitioning, files skipped and wall clock effect
+value: 5x fewer files scanned, 0.85x speedup (15% slower)
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: same 100,000 row Silver written twice, partitioned by event_date and flat
+command / test: batch/jobs/benchmark_partitioning.py
+config: single-day filter, count and groupBy, median of 5 repeats
+evidence: benchmarks/raw/partition_benchmark.json
+notes: pruning demonstrably works, 1 file scanned versus 5, and both return the same 16,178
+       rows. But the partitioned table is SLOWER in wall time here: partitioning produced 15
+       small files versus 6, and per-file overhead dominates at this data size while Spark's
+       fixed ~150 ms startup swamps the I/O saved. The mechanism is correct and the benefit
+       scales with data volume; at 100,000 rows it has not arrived yet. Do not claim
+       partitioning made queries faster on the basis of this run.
 ```

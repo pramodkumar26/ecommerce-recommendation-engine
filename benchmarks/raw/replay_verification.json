@@ -16,21 +16,21 @@
     "out_of_order_pairs_when_delaying_10pct": 1686
   },
   "partitioning": {
-    "records_read": 40422,
-    "distinct_visitor_keys": 11421,
+    "records_read": 2776101,
+    "distinct_visitor_keys": 1407580,
     "keys_spanning_multiple_partitions": 0,
     "per_topic": {
       "item_view": {
         "partitions": 3,
-        "records": 39278
+        "records": 2683746
       },
       "add_to_cart": {
         "partitions": 3,
-        "records": 920
+        "records": 69787
       },
       "transaction": {
         "partitions": 3,
-        "records": 224
+        "records": 22568
       }
     },
     "examples_of_split_keys": {}

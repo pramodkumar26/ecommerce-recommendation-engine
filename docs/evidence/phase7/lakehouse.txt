@@ -1,0 +1,99 @@
+Phase 7 evidence: Silver, Gold, point-in-time enrichment
+
+=== item scd ===
+  distinct_snapshots                           18
+  first_snapshot_ms                            1431226800000
+  last_snapshot_ms                             1442113200000
+  snapshot_gaps_days                           [7.0, 14.0]
+  property_rows_total                          20275902
+  tracked_properties                           ['categoryid', 'available']
+  scd_rows                                     1031473
+  scd_by_property                              {'categoryid': {'intervals': 442672, 'items': 417053}, 'available': {'intervals': 588801, 'items': 417053}}
+  open_intervals                               834106
+  categories                                   1669
+  compression_ratio                            2.222
+
+=== silver build ===
+  run_label                                    silver
+  bounded_rebuild                              True
+  start_date                                   2015-05-10
+  end_date                                     2015-05-12
+  bronze_rows_total                            100000
+  bronze_rows_in_scope                         28321
+  after_dedup                                  28321
+  duplicates_removed                           0
+  rejected_rows                                0
+  rejection_reasons                            {}
+  silver_rows                                  28321
+  enriched_rows                                13059
+  unenriched_rows                              15262
+  join_miss_rate_pct                           53.889
+  distinct_categories_seen                     675
+  partitions                                   2
+
+=== point-in-time verification ===
+  run_label                                    silver
+  source_rows                                  100000 to 200000
+  silver_rows                                  100000
+  spark_enriched                               31408
+  pandas_enriched                              31408
+  rows_compared                                100000
+  disagreements                                0
+  rows_enriched_from_the_future_spark          0
+  rows_enriched_from_the_future_independent    0
+  min_enrichment_lag_ms                        9663
+  enrichment_status_counts                     {'enriched': 31408, 'no_property_at_or_before_event': 68592}
+  rows_with_parent_category                    31405
+  partitions                                   ['2015-05-07', '2015-05-08', '2015-05-09', '2015-05-10', '2015-05-11', '2015-05-12', '2015-05-13']
+  passed                                       True
+
+  ok   spark_reports_zero_future_enrichment
+  ok   independent_check_finds_zero_future_enrichment
+  ok   min_enrichment_lag_non_negative
+  ok   enriched_count_matches_independent_join
+  ok   every_event_agrees_with_independent_join
+  ok   unenriched_rows_have_a_status
+  passed: True
+
+=== bounded rebuild ===
+  run_label                                    silver
+  rebuild_range                                2015-05-10 to 2015-05-12 (exclusive)
+  partitions_in_range                          ['2015-05-10', '2015-05-11']
+  partitions_out_of_range                      ['2015-05-07', '2015-05-08', '2015-05-09', '2015-05-12', '2015-05-13']
+  rows_before                                  100000
+  rows_after                                   100000
+  delta_version_before                         0
+  delta_version_after                          1
+  last_operation                               WRITE
+  rebuilt_partitions_identical                 2
+  untouched_partitions_identical               5
+  passed                                       True
+
+  ok   rebuild_targeted_some_partitions
+  ok   partitions_outside_range_exist
+  ok   rebuilt_partitions_reproduce_identically
+  ok   partitions_outside_range_untouched
+  ok   total_row_count_unchanged
+  ok   partition_set_unchanged
+  ok   delta_version_advanced
+  passed: True
+
+=== gold build ===
+  run_label                                    silver
+  silver_rows                                  100000
+  fact_events_rows                             100000
+  fact_transactions_rows                       639
+  distinct_transaction_ids                     519
+  mart_item_funnel_rows                        40108
+  mart_category_performance_rows               783
+  mart_daily_item_metrics_rows                 63457
+  events_attributable_to_a_category            31408
+  category_attribution_pct                     31.408
+  items_with_a_purchase                        576
+  items_with_a_cart                            1777
+
+=== partition benchmark ===
+  partitioned                                  {'files_in_table': 15, 'files_scanned_for_one_day': 1, 'rows_matched': 16178, 'count_median_ms': 214.3, 'count_best_ms': 183.3, 'groupby_median_ms': 166.0, 'groupby_best_ms': 155.3}
+  unpartitioned                                {'files_in_table': 6, 'files_scanned_for_one_day': 5, 'rows_matched': 16178, 'count_median_ms': 182.4, 'count_best_ms': 141.1, 'groupby_median_ms': 157.0, 'groupby_best_ms': 135.1}
+  comparison                                   {'target_date': '2015-05-11', 'file_skip_ratio': 5.0, 'count_speedup': 0.85, 'groupby_speedup': 0.95, 'pruning_observed': True, 'rows_agree': True}
+

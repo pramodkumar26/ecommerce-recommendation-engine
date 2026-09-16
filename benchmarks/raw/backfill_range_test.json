@@ -1,0 +1,32 @@
+{
+  "run_label": "silver",
+  "rebuild_range": "2015-05-10 to 2015-05-12 (exclusive)",
+  "partitions_in_range": [
+    "2015-05-10",
+    "2015-05-11"
+  ],
+  "partitions_out_of_range": [
+    "2015-05-07",
+    "2015-05-08",
+    "2015-05-09",
+    "2015-05-12",
+    "2015-05-13"
+  ],
+  "rows_before": 100000,
+  "rows_after": 100000,
+  "delta_version_before": 2,
+  "delta_version_after": 3,
+  "last_operation": "WRITE",
+  "rebuilt_partitions_identical": 2,
+  "untouched_partitions_identical": 5,
+  "checks": {
+    "rebuild_targeted_some_partitions": true,
+    "partitions_outside_range_exist": true,
+    "rebuilt_partitions_reproduce_identically": true,
+    "partitions_outside_range_untouched": true,
+    "total_row_count_unchanged": true,
+    "partition_set_unchanged": true,
+    "delta_version_advanced": true
+  },
+  "passed": true
+}

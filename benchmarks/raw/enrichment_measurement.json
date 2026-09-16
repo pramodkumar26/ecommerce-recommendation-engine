@@ -1,0 +1,31 @@
+{
+  "run_label": "fulldata",
+  "total_events": 2756101,
+  "any_property": {
+    "joinable": 2362903,
+    "item_has_no_such_property": 255585,
+    "event_precedes_first_occurrence": 137613,
+    "miss_rate_pct": 14.266
+  },
+  "categoryid": {
+    "joinable": 2099173,
+    "item_has_no_such_property": 255585,
+    "event_precedes_first_occurrence": 401343,
+    "miss_rate_pct": 23.835
+  },
+  "phase2_expected_any_property_pct": 14.266,
+  "difference_from_phase2_points": 0.0,
+  "events_with_a_property_but_no_category_yet": 263730,
+  "silver_rows": 2756101,
+  "silver_enriched": 2099173,
+  "silver_miss_rate_pct": 23.835,
+  "silver_rows_enriched_from_the_future": 0,
+  "checks": {
+    "reproduces_phase2_any_property_rate": true,
+    "categoryid_rate_is_higher_as_expected": true,
+    "same_items_lack_any_property": true,
+    "no_future_enrichment_in_silver": true,
+    "silver_enrichment_matches_source_possibility": true
+  },
+  "passed": true
+}
