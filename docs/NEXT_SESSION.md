@@ -9,7 +9,7 @@ the log at the bottom.
 ```text
 phase:                Phase 8 COMPLETE. Phase 7 local complete, ADLS sync still blocked.
 last task completed:  Backfill CLI, transformation change reprocessed and verified.
-branch / commit:      main, Phase 8 uncommitted at time of writing
+branch / commit:      main, 71f76d4
 services running:     streaming profile up (kafka, schema-registry, spark, redis)
 services stopped:     no Spark application running
 next command to run:  make up && .venv/bin/python scripts/run_regression.py

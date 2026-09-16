@@ -85,9 +85,9 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 | STREAM-FULLSCALE-001 | full dataset through the streaming chain | 2,756,101 events in 238.1 s | 2026-09-16 | `08e71a6` | `full_enrichment_run.json` |
 | LAKEHOUSE-PERSIST-001 | Delta survives restart, rebuild reproduces | 10 tables identical, both checks | 2026-09-16 | `08e71a6` | `restart_persistence_test.json` |
 | REGRESSION-SUITE-001 | phases 3 to 7 verification suite | 12 of 12 passed | 2026-09-16 | `08e71a6` | superseded by REGRESSION-SUITE-002 |
-| BACKFILL-TRANSFORM-001 | transformation change reprocessed from Bronze | 2 partitions changed, 5 untouched, 9 of 9 checks | 2026-09-16 | pending | `backfill_transformation_test.json` |
-| BACKFILL-SCOPE-001 | bounded backfill blast radius and timing | 28,321 of 100,000 rows, 35.8 s | 2026-09-16 | pending | `backfill_report.json` |
-| REGRESSION-SUITE-002 | phases 3 to 8 verification suite | 13 of 13 passed | 2026-09-16 | pending | `regression_suite.json` |
+| BACKFILL-TRANSFORM-001 | transformation change reprocessed from Bronze | 2 partitions changed, 5 untouched, 9 of 9 checks | 2026-09-16 | `71f76d4` | `backfill_transformation_test.json` |
+| BACKFILL-SCOPE-001 | bounded backfill blast radius and timing | 28,321 of 100,000 rows, 35.8 s | 2026-09-16 | `71f76d4` | `backfill_report.json` |
+| REGRESSION-SUITE-002 | phases 3 to 8 verification suite | 13 of 13 passed | 2026-09-16 | `71f76d4` | `regression_suite.json` |
 
 The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 `8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
@@ -795,7 +795,7 @@ metric_id: BACKFILL-TRANSFORM-001
 metric: a changed transformation rule reprocessed from Bronze over a bounded range
 value: 2 partitions updated, 5 left untouched, 9 of 9 checks pass
 date: 2026-09-16
-git_commit: pending
+git_commit: 71f76d4d98ded9e9d0fb1b17620f0a969c60e410
 environment: ENV-LOCAL-DOCKER
 dataset slice: `silver` label, 100,000 events across 7 daily partitions, range 2015-05-10 to
                2015-05-12 exclusive
@@ -823,7 +823,7 @@ metric_id: BACKFILL-SCOPE-001
 metric: what a bounded backfill actually rewrites, and how long it takes
 value: 28,321 of 100,000 rows reprocessed in 35.8 s
 date: 2026-09-16
-git_commit: pending
+git_commit: 71f76d4d98ded9e9d0fb1b17620f0a969c60e410
 environment: ENV-LOCAL-DOCKER
 dataset slice: `silver` label, 2 of 7 daily partitions
 command / test: scripts/backfill.py --start-date 2015-05-10 --end-date 2015-05-12
@@ -846,7 +846,7 @@ metric_id: REGRESSION-SUITE-002
 metric: every phase verification run together after the Phase 8 changes
 value: 13 of 13 passed in 1121.8 s
 date: 2026-09-16
-git_commit: pending
+git_commit: 71f76d4d98ded9e9d0fb1b17620f0a969c60e410
 environment: ENV-LOCAL-DOCKER
 dataset slice: each check builds its own fixture
 command / test: scripts/run_regression.py
