@@ -4,7 +4,7 @@ PIP := .venv/bin/pip
 PYTHON311 := /opt/homebrew/opt/python@3.11/bin/python3.11
 SPARK_PACKAGES := $(shell grep '^SPARK_PACKAGES=' .env 2>/dev/null | cut -d= -f2-)
 
-.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq stream verify-streaming measure-lateness test-duplicates test-late-events test-restart verify-reliability scd silver gold verify-silver test-backfill bench-partitioning lakehouse test-timestamps test-rejects test-persistence full-enrichment regression clean
+.PHONY: help venv install env up down ps logs stats smoke smoke-kafka smoke-spark smoke-redis topic-smoke profile verify-event-id topics simulate verify-replay bench-producer schemas dlq-router verify-schema-dlq stream verify-streaming measure-lateness test-duplicates test-late-events test-restart verify-reliability scd silver gold verify-silver test-backfill bench-partitioning lakehouse test-timestamps test-rejects test-persistence full-enrichment regression backfill test-backfill-change clean
 
 help:
 	@echo "setup"
@@ -63,6 +63,10 @@ help:
 	@echo "  make test-persistence   cycles the stack, delta survives, rebuild matches"
 	@echo "  make full-enrichment    full 2.75M dataset end to end"
 	@echo "  make regression         every phase check, about 17 minutes"
+	@echo ""
+	@echo "phase 8 backfill"
+	@echo "  make backfill START=2015-05-10 END=2015-05-12   reprocess a bounded range"
+	@echo "  make test-backfill-change   transformation change verification"
 	@echo ""
 	@echo "danger"
 	@echo "  make clean          stop and DELETE kafka and redis volumes"
@@ -209,6 +213,13 @@ full-enrichment:
 
 regression:
 	$(PY) scripts/run_regression.py
+
+backfill:
+	$(PY) scripts/backfill.py --run-label $(LAKEHOUSE_LABEL) \
+		--start-date $(START) --end-date $(END)
+
+test-backfill-change:
+	$(PY) scripts/test_backfill_transformation.py
 
 clean:
 	docker compose --profile streaming down -v

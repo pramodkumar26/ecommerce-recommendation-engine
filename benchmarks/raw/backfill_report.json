@@ -1,0 +1,33 @@
+{
+  "run_label": "silver",
+  "start_date": "2015-05-10",
+  "end_date": "2015-05-12",
+  "rebuild_scd": false,
+  "skip_gold": false,
+  "started_utc": "2026-09-16T21:42:04Z",
+  "stages": {
+    "rebuild_silver_range": 19.9,
+    "rebuild_gold_range": 16.9
+  },
+  "silver": {
+    "rows_in_scope": 28321,
+    "rows_written": 28321,
+    "rejected": 0,
+    "enriched": 13059
+  },
+  "gold": {
+    "surgical": [
+      "fact_events",
+      "fact_transactions",
+      "mart_daily_item_metrics"
+    ],
+    "full_rebuild": [
+      "mart_item_funnel",
+      "mart_category_performance"
+    ],
+    "silver_rows_in_scope": 28321,
+    "silver_rows_total": 100000
+  },
+  "finished_utc": "2026-09-16T21:42:41Z",
+  "total_seconds": 36.8
+}

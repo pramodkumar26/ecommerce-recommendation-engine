@@ -301,3 +301,75 @@ Verified by fingerprinting every table before restart, after restart, and after 
 Fingerprints are order-independent sums over per-row hashes, so a rebuild writing identical
 content into a different file layout compares equal while any content change does not. All 10
 tables identical at every stage.
+
+## Backfill and replay
+
+`scripts/backfill.py` reprocesses a bounded date range from Bronze through Silver into Gold.
+
+```bash
+.venv/bin/python scripts/backfill.py --run-label silver \
+    --start-date 2015-05-10 --end-date 2015-05-12
+```
+
+### One definition of the rules
+
+The backfill invokes `build_silver.py` and `build_gold.py` rather than restating their logic.
+A second implementation "optimised for backfill" is how a backfill quietly stops matching the
+pipeline it is meant to repair.
+
+### What a bounded run touches
+
+| Table | Bounded behaviour |
+|---|---|
+| `silver_events` | `replaceWhere` on the range |
+| `fact_events` | `replaceWhere` on the range |
+| `fact_transactions` | `replaceWhere` on the range |
+| `mart_daily_item_metrics` | `replaceWhere` on the range |
+| `mart_item_funnel` | **full rebuild**, no date in the grain |
+| `mart_category_performance` | **full rebuild**, no date in the grain |
+| `bronze_events` | never written, it is the source |
+| `dim_items_scd` | only with `--rebuild-scd` |
+
+The two global marts aggregate across all history with no date in their grain, so reprocessing
+three days cannot be expressed as a partial rewrite. Computing them from the bounded slice would
+silently discard every other day, so they read all of Silver. The job reports which tables were
+surgical and which were rebuilt in full rather than hiding the distinction. Making them
+incrementally updatable means storing per-day partials, which is Phase 9 warehouse work.
+
+### Schema changes during a backfill
+
+Delta refuses to combine `replaceWhere` with `overwriteSchema`: rewriting one date range cannot
+redefine a table the rest of which is untouched. `mergeSchema` permits additive columns.
+
+The consequence is visible and correct. A newly added column is populated only inside the
+backfilled range; partitions outside it hold NULL until they are reprocessed too. That is an
+accurate record of which partitions have been migrated, not a defect. A full rebuild fills them.
+
+### The demonstration
+
+The Phase 8 change is additive: `fact_events` gains `category_known_since_ms` and
+`category_age_at_event_ms`, carrying point-in-time provenance into Gold. Before, Gold recorded
+WHAT category an item had at event time but not WHEN that value became known, which is the
+difference between "this item was in category 1338" and "it had been for 3 days when the event
+happened". Phase 11 features need the second, and it cannot be recovered later without
+re-joining the SCD.
+
+Additive was chosen deliberately: no row changes enrichment status, so ENRICH-CATEGORY-001 at
+23.835% stays valid rather than being invalidated by the demonstration.
+
+Verified by `scripts/test_backfill_transformation.py`, which first recreates the pre-change
+schema so the test is repeatable rather than passing only on a mid-migration table:
+
+| Check | Result |
+|---|---|
+| New columns appear inside the range | 2 partitions |
+| Partitions outside the range still NULL | 5 partitions |
+| Row counts unchanged | 100,000 before and after |
+| Full rebuild propagates everywhere | all 7 partitions |
+| Bronze never written | byte-identical fingerprint |
+| Category age always non-negative | 9,663 ms to 313,883,766 ms |
+
+That last row is a second independent leakage check: a negative age would mean a property was
+applied before its own validity began.
+
+Timing: 28,321 of 100,000 rows reprocessed in 35.8 s, Silver 18.9 s and Gold 16.9 s.

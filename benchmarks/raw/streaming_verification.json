@@ -23,7 +23,7 @@
   "approx_distinct_mean_error_pct": 0.2757,
   "approx_distinct_worst_error_pct": 3.0612,
   "approx_distinct_worst_absolute_error": 3,
-  "redis_window_keys": 1251,
+  "redis_window_keys": 1601,
   "redis_latest": {
     "batch_id": "3",
     "window_start": "2015-05-05T19:40:00",

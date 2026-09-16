@@ -1,0 +1,58 @@
+{
+  "run_label": "silver",
+  "backfill_range": "2015-05-10 to 2015-05-12 (exclusive)",
+  "new_columns": [
+    "category_known_since_ms",
+    "category_age_at_event_ms"
+  ],
+  "columns_before_change": [
+    "available",
+    "category_id",
+    "enrichment_status",
+    "event_date",
+    "event_id",
+    "event_time",
+    "event_timestamp",
+    "event_type",
+    "item_id",
+    "parent_category_id",
+    "visitor_id"
+  ],
+  "partitions_in_range": [
+    "2015-05-10",
+    "2015-05-11"
+  ],
+  "partitions_out_of_range": [
+    "2015-05-07",
+    "2015-05-08",
+    "2015-05-09",
+    "2015-05-12",
+    "2015-05-13"
+  ],
+  "after_backfill": {
+    "partitions_fully_populated": 2,
+    "partitions_still_null": 5,
+    "total_rows": 100000
+  },
+  "after_full_rebuild": {
+    "partitions_fully_populated": 7,
+    "total_partitions": 7,
+    "total_rows": 100000
+  },
+  "min_category_age_ms": 9663,
+  "max_category_age_ms": 313883766,
+  "bronze_rows": 100000,
+  "bronze_unchanged": true,
+  "checks": {
+    "pre_change_state_had_no_new_columns": true,
+    "new_columns_exist_after_backfill": true,
+    "backfilled_partitions_populated": true,
+    "untouched_partitions_still_null": true,
+    "backfill_did_not_change_row_counts": true,
+    "full_rebuild_propagates_everywhere": true,
+    "full_rebuild_preserves_row_counts": true,
+    "bronze_never_written": true,
+    "values_are_sane": true
+  },
+  "passed": true
+}

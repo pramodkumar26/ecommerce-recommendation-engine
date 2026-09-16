@@ -63,6 +63,8 @@ SUITE = [
     ("phase7_point_in_time", "7", lambda: run([PY, "scripts/verify_silver.py"], timeout=7200)),
     ("phase7_bounded_rebuild", "7",
      lambda: run([PY, "scripts/test_backfill_range.py"], timeout=7200)),
+    ("phase8_backfill_transformation", "8",
+     lambda: run([PY, "scripts/test_backfill_transformation.py"], timeout=7200)),
 ]
 
 OUT = ROOT / "benchmarks" / "raw" / "regression_suite.json"

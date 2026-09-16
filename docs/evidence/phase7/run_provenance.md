@@ -11,10 +11,9 @@ HEAD commit:     5c7801e67868a46c4ef1d779867e430f79138cef
 working tree:    DIRTY, 24 uncommitted files
 ```
 
-The tree is deliberately dirty. Phase 7 is being committed once, after the full regression suite
-is green, rather than in several "almost done" commits. Every measurement taken during this
-window is therefore attributed to the FINAL Phase 7 commit, not to 5c7801e, and the ledger rows
-are filled in after that commit exists. Any row still showing 5c7801e would be wrong.
+RESOLVED. Phase 7 was committed once, after the full regression suite went green, as
+`08e71a604f6d93898a83657a4135ca69ab466365`. Every measurement taken during this window is
+attributed to that commit, not to 5c7801e. No ledger row should reference 5c7801e.
 
 ## Environment
 

@@ -1,6 +1,16 @@
 {
   "run_label": "silver",
+  "bounded_rebuild": false,
+  "start_date": null,
+  "end_date": null,
+  "replace_where": null,
+  "tables_rebuilt_surgically": [],
+  "tables_rebuilt_in_full": [
+    "mart_item_funnel",
+    "mart_category_performance"
+  ],
   "silver_rows": 100000,
+  "silver_rows_in_scope": 100000,
   "fact_events_rows": 100000,
   "fact_transactions_rows": 639,
   "distinct_transaction_ids": 519,

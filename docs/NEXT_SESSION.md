@@ -7,20 +7,73 @@ the log at the bottom.
 ## Current state
 
 ```text
-phase:                Phase 7 LOCAL COMPLETE, ADLS sync deferred to Azure access
-last task completed:  Integration fixes, medallion layers, full-dataset enrichment verified.
-branch / commit:      main, Phase 7 uncommitted at time of writing, see below
+phase:                Phase 8 COMPLETE. Phase 7 local complete, ADLS sync still blocked.
+last task completed:  Backfill CLI, transformation change reprocessed and verified.
+branch / commit:      main, Phase 8 uncommitted at time of writing
 services running:     streaming profile up (kafka, schema-registry, spark, redis)
-services stopped:     no Spark application running, all batch jobs finished
+services stopped:     no Spark application running
 next command to run:  make up && .venv/bin/python scripts/run_regression.py
-unresolved error:     none, 12 of 12 regression checks green
+unresolved error:     none, 13 of 13 regression checks green
 Azure left alive:     none, no Azure resources provisioned
 ```
+
+## Phase 8 result
+
+Definition of done met: a bounded historical range is reprocessed from Bronze and downstream
+counts and values change correctly.
+
+| Check | Result |
+|---|---|
+| New columns appear inside the backfilled range | 2 partitions |
+| Partitions outside the range untouched | 5 partitions, still NULL |
+| Row counts unchanged | 100,000 before and after |
+| Full rebuild propagates everywhere | all 7 partitions |
+| Bronze never written | byte-identical fingerprint |
+| Category age always non-negative | 9,663 ms to 313,883,766 ms |
+
+Built: `scripts/backfill.py` (the bounded backfill command), bounded-rebuild support in
+`build_gold.py`, `batch/jobs/probe_backfill.py`, and
+`scripts/test_backfill_transformation.py`. Documented in `docs/lakehouse.md`.
+
+### The transformation change, and why it was chosen
+
+`fact_events` gains `category_known_since_ms` and `category_age_at_event_ms`, carrying
+point-in-time provenance into Gold. Gold previously recorded WHAT category an item had at event
+time but not WHEN that became known, which is the difference between "this item was in category
+1338" and "it had been for 3 days when the event happened". Phase 11 features need the second.
+
+Additive on purpose: no row changes enrichment status, so ENRICH-CATEGORY-001 at 23.835% stays
+valid instead of being invalidated by the demonstration.
+
+### Two constraints worth remembering
+
+**Delta refuses `replaceWhere` combined with `overwriteSchema`.** Rewriting one date range
+cannot redefine a table the rest of which is untouched. `mergeSchema` permits additive columns,
+and the consequence is correct: a new column is populated only inside the backfilled range and
+NULL elsewhere until those partitions are reprocessed. That is an accurate record of migration
+progress, not a defect.
+
+**Global marts cannot be partially rebuilt.** `mart_item_funnel` and
+`mart_category_performance` aggregate across all history with no date in their grain, so they
+are rebuilt from all of Silver on every run. Computing them from the bounded slice would
+silently discard every other day. The job reports which tables were surgical and which were
+full. Making them incremental means storing per-day partials, which is Phase 9 work.
+
+### A test that passed for the wrong reason, twice
+
+The verification first failed because it compared the new column against every row in a
+partition. The column is NULL exactly where there is no category, by design, so it can never
+reach 100%. Corrected to compare against enriched rows.
+
+It then failed because a previous run had already done the full rebuild, so "after backfill"
+was observing an already-propagated table. It now recreates the pre-change schema itself via
+`build_gold.py --legacy-schema`, making it repeatable rather than passing only on a table that
+happens to be mid-migration.
 
 ## Verification commands
 
 ```bash
-.venv/bin/python scripts/run_regression.py          # all 12 checks, about 17 minutes
+.venv/bin/python scripts/run_regression.py          # all 13 checks, about 19 minutes
 .venv/bin/python -m pytest tests/ -q                # validation parity, under a second
 .venv/bin/python scripts/run_full_enrichment.py     # full 2.75M dataset, about 8 minutes
 ```
@@ -28,6 +81,7 @@ Azure left alive:     none, no Azure resources provisioned
 Individual checks, if the suite is too slow:
 
 ```bash
+.venv/bin/python scripts/test_backfill_transformation.py  # phase 8
 .venv/bin/python scripts/verify_silver.py           # point-in-time, no future leakage
 .venv/bin/python scripts/test_silver_rejects.py     # contract rejects fire and categorise
 .venv/bin/python scripts/test_backfill_range.py     # bounded rebuild is surgical
@@ -233,28 +287,27 @@ answer is a custom image.
 
 ## Next up
 
-Azure access was reported as ticketed with CU OIT and expected within 2 to 3 hours. Two paths:
+Phase 8 is done, so the only local work left before Phase 9 needs Azure.
 
-**If Azure access works.** Close Phase 7 by adding the scheduled local-to-ADLS sync and a
-separately labelled cloud-integration smoke test, then Phase 1B for the Terraform foundation.
-Do NOT write Spark micro-batches directly to ADLS; that would mix WAN latency and Azure
-transaction cost into the local streaming benchmark. Sync selected Delta snapshots on a
-schedule, and record cloud timing under its own metric ids, never merged with local figures.
+**If Azure access works.** Two things in order:
 
-Pinned versions for the ABFS work, verified in this repo, not assumed:
+1. Close Phase 7: the scheduled local-to-ADLS sync and a separately labelled cloud-integration
+   smoke test. Do NOT write Spark micro-batches directly to ADLS, that mixes WAN latency and
+   Azure transaction cost into the local streaming benchmark. Sync selected Delta snapshots on a
+   schedule, and record cloud timing under its own metric ids, never merged with local figures.
+2. Phase 1B: the Terraform foundation, resource group, ADLS, SQL, ACR, Container Apps.
+
+Pinned versions for the ABFS work, verified in this repo:
 
 ```text
 Spark 3.5.7, Hadoop 3.3.4 (bundled), Delta 3.3.2, Scala 2.12, Java 17
 hadoop-azure must match Hadoop 3.3.4
 ```
 
-The roadmap budgets a day for exactly this dependency chain, and Apple Silicon can add JAR
-friction. Do not start it while the tenant question is open.
-
-**If Azure access does not work.** Phase 8, backfill and replay, needs nothing cloud. Shared
-transformation logic, a bounded backfill command, and one intentional transformation change
-reprocessed from Bronze with before and after counts. `test_backfill_range.py` already proves
-the surgical rebuild works, so Phase 8 is mostly changing a rule and showing Gold updates.
+**If Azure access does not work.** Phase 9 is dbt on Azure SQL and is fully blocked. Phase 10,
+data quality monitoring, is local and could be brought forward: DQ metrics, point-in-time join
+miss rate, volume anomalies, DLQ rate. The enrichment miss rate and reject categories from
+Phases 7 and 8 already give it real inputs.
 
 First command either way:
 

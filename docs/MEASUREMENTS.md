@@ -73,18 +73,21 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 | RECOVERY-DEDUP-001 | injected duplicates removed from the aggregate | 2,389 of 2,389, 777 windows exact | 2026-09-15 | `34773b0` | `duplicate_test.json` |
 | RECOVERY-LATE-001 | events dropped by watermark, two settings | 0.56% at 24h, 3.45% at 1 min | 2026-09-15 | `34773b0` | `late_event_test.json` |
 | RECOVERY-RESTART-001 | checkpoint restart, loss and inflation | 0 lost, 0 duplicated, 50,000 of 50,000 | 2026-09-15 | `34773b0` | `restart_test.json` |
-| SILVER-PITJOIN-001 | rows enriched from a future property | 0 of 100,000, matches independent as-of join | 2026-09-16 | pending | `silver_verification.json` |
-| SILVER-SCD-001 | property snapshots collapsed to validity intervals | 2.29M rows to 1.03M intervals | 2026-09-16 | pending | `item_scd_stats.json` |
-| BACKFILL-RANGE-001 | bounded Silver rebuild, surgical | 2 rebuilt identical, 5 untouched | 2026-09-16 | pending | `backfill_range_test.json` |
-| STORAGE-PARTITION-001 | time partitioning, files skipped vs wall time | 5x fewer files, 0.85x speed | 2026-09-16 | pending | `partition_benchmark.json` |
-| ENRICH-ANYPROP-001 | full-dataset any-property miss rate, vs Phase 2 | 14.266%, 0.0 point difference | 2026-09-16 | pending | `enrichment_measurement.json` |
-| ENRICH-CATEGORY-001 | full-dataset categoryid enrichment miss rate | 23.835% (2,099,173 of 2,756,101 enriched) | 2026-09-16 | pending | `enrichment_measurement.json` |
-| SILVER-LEAK-002 | rows enriched from the future, full dataset | 0 of 2,756,101 | 2026-09-16 | pending | `enrichment_measurement.json` |
-| SILVER-REJECT-001 | contract rejects fired and categorised | 610 of 610, 3 categories exact | 2026-09-16 | pending | `silver_rejects_test.json` |
-| TIME-ROUNDTRIP-001 | epoch ms to timestamp and back, exactness | 0 mismatches, timezone independent | 2026-09-16 | pending | `timestamp_roundtrip.json` |
-| STREAM-FULLSCALE-001 | full dataset through the streaming chain | 2,756,101 events in 238.1 s | 2026-09-16 | pending | `full_enrichment_run.json` |
-| LAKEHOUSE-PERSIST-001 | Delta survives restart, rebuild reproduces | 10 tables identical, both checks | 2026-09-16 | pending | `restart_persistence_test.json` |
-| REGRESSION-SUITE-001 | phases 3 to 7 verification suite | 12 of 12 passed | 2026-09-16 | pending | `regression_suite.json` |
+| SILVER-PITJOIN-001 | rows enriched from a future property | 0 of 100,000, matches independent as-of join | 2026-09-16 | `08e71a6` | `silver_verification.json` |
+| SILVER-SCD-001 | property snapshots collapsed to validity intervals | 2.29M rows to 1.03M intervals | 2026-09-16 | `08e71a6` | `item_scd_stats.json` |
+| BACKFILL-RANGE-001 | bounded Silver rebuild, surgical | 2 rebuilt identical, 5 untouched | 2026-09-16 | `08e71a6` | `backfill_range_test.json` |
+| STORAGE-PARTITION-001 | time partitioning, files skipped vs wall time | 5x fewer files, 0.85x speed | 2026-09-16 | `08e71a6` | `partition_benchmark.json` |
+| ENRICH-ANYPROP-001 | full-dataset any-property miss rate, vs Phase 2 | 14.266%, 0.0 point difference | 2026-09-16 | `08e71a6` | `enrichment_measurement.json` |
+| ENRICH-CATEGORY-001 | full-dataset categoryid enrichment miss rate | 23.835% (2,099,173 of 2,756,101 enriched) | 2026-09-16 | `08e71a6` | `enrichment_measurement.json` |
+| SILVER-LEAK-002 | rows enriched from the future, full dataset | 0 of 2,756,101 | 2026-09-16 | `08e71a6` | `enrichment_measurement.json` |
+| SILVER-REJECT-001 | contract rejects fired and categorised | 610 of 610, 3 categories exact | 2026-09-16 | `08e71a6` | `silver_rejects_test.json` |
+| TIME-ROUNDTRIP-001 | epoch ms to timestamp and back, exactness | 0 mismatches, timezone independent | 2026-09-16 | `08e71a6` | `timestamp_roundtrip.json` |
+| STREAM-FULLSCALE-001 | full dataset through the streaming chain | 2,756,101 events in 238.1 s | 2026-09-16 | `08e71a6` | `full_enrichment_run.json` |
+| LAKEHOUSE-PERSIST-001 | Delta survives restart, rebuild reproduces | 10 tables identical, both checks | 2026-09-16 | `08e71a6` | `restart_persistence_test.json` |
+| REGRESSION-SUITE-001 | phases 3 to 7 verification suite | 12 of 12 passed | 2026-09-16 | `08e71a6` | superseded by REGRESSION-SUITE-002 |
+| BACKFILL-TRANSFORM-001 | transformation change reprocessed from Bronze | 2 partitions changed, 5 untouched, 9 of 9 checks | 2026-09-16 | pending | `backfill_transformation_test.json` |
+| BACKFILL-SCOPE-001 | bounded backfill blast radius and timing | 28,321 of 100,000 rows, 35.8 s | 2026-09-16 | pending | `backfill_report.json` |
+| REGRESSION-SUITE-002 | phases 3 to 8 verification suite | 13 of 13 passed | 2026-09-16 | pending | `regression_suite.json` |
 
 The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 `8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
@@ -540,7 +543,7 @@ metric_id: ENRICH-ANYPROP-001
 metric: full-dataset share of events with no item property at or before the event time
 value: 14.266% (2,362,903 of 2,756,101 joinable)
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: complete Retailrocket source, all 2,756,101 events, all 1,104 property names
 command / test: batch/jobs/measure_enrichment.py --run-label fulldata
@@ -561,7 +564,7 @@ metric_id: ENRICH-CATEGORY-001
 metric: full-dataset share of events that cannot be enriched with a category
 value: 23.835% (2,099,173 of 2,756,101 enriched)
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: complete Retailrocket source
 command / test: batch/jobs/measure_enrichment.py --run-label fulldata
@@ -587,7 +590,7 @@ metric_id: SILVER-LEAK-002
 metric: Silver rows carrying a property whose validity begins after the event, full dataset
 value: 0 of 2,756,101
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: complete Retailrocket source
 command / test: batch/jobs/measure_enrichment.py --run-label fulldata
@@ -604,7 +607,7 @@ metric_id: SILVER-REJECT-001
 metric: contract-invalid records routed to silver_rejected with the correct category
 value: 610 of 610, split 203 / 192 / 215 exactly as injected
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: 30,000 events, 6% malformed injection, seed 42
 command / test: scripts/test_silver_rejects.py
@@ -626,7 +629,7 @@ metric_id: TIME-ROUNDTRIP-001
 metric: epoch millis to Spark timestamp and back, exactness and timezone independence
 value: 0 mismatches across 200,000 table rows and 12 synthetic cases, identical in 5 timezones
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: Bronze and Silver `silver` label, plus crafted DST-boundary instants
 command / test: batch/jobs/test_timestamp_roundtrip.py
@@ -647,7 +650,7 @@ metric_id: STREAM-FULLSCALE-001
 metric: complete dataset through Kafka, the three-query Spark chain, and into Bronze
 value: 2,756,101 events in 238.1 s
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: complete Retailrocket source
 command / test: scripts/run_full_enrichment.py
@@ -670,7 +673,7 @@ metric_id: LAKEHOUSE-PERSIST-001
 metric: Delta survives a full service restart, and rebuilds reproduce byte-identical content
 value: 10 tables identical after restart, 10 identical after rebuild
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: `silver` label lakehouse, 100,000 events
 command / test: scripts/test_restart_persistence.py
@@ -689,7 +692,7 @@ metric_id: REGRESSION-SUITE-001
 metric: every phase verification run together after the Phase 7 changes
 value: 12 of 12 passed in 1000.2 s
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: each check builds its own fixture
 command / test: scripts/run_regression.py
@@ -708,7 +711,7 @@ metric_id: SILVER-PITJOIN-001
 metric: Silver rows enriched with a property whose validity begins after the event
 value: 0 of 100,000, and 0 disagreements against an independent as-of join
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: source rows 100,000 to 200,000, chosen to straddle the first property snapshot
 command / test: scripts/verify_silver.py
@@ -732,7 +735,7 @@ metric_id: SILVER-SCD-001
 metric: item property snapshots collapsed into validity intervals
 value: 2,291,853 tracked property rows to 1,031,473 intervals, 2.22x compression
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: all categoryid and available rows across both property files
 command / test: batch/jobs/build_item_scd.py
@@ -751,7 +754,7 @@ metric_id: BACKFILL-RANGE-001
 metric: bounded Silver rebuild from Bronze, correctness and blast radius
 value: 2 partitions rebuilt byte-identically, 5 outside the range untouched
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: 100,000 event fixture across 7 daily partitions, rebuild window 2015-05-10 to
                2015-05-12 exclusive
@@ -771,7 +774,7 @@ metric_id: STORAGE-PARTITION-001
 metric: time partitioning, files skipped and wall clock effect
 value: 5x fewer files scanned, 0.85x speedup (15% slower)
 date: 2026-09-16
-git_commit: pending
+git_commit: 08e71a604f6d93898a83657a4135ca69ab466365
 environment: ENV-LOCAL-DOCKER
 dataset slice: same 100,000 row Silver written twice, partitioned by event_date and flat
 command / test: batch/jobs/benchmark_partitioning.py
@@ -783,4 +786,73 @@ notes: pruning demonstrably works, 1 file scanned versus 5, and both return the 
        fixed ~150 ms startup swamps the I/O saved. The mechanism is correct and the benefit
        scales with data volume; at 100,000 rows it has not arrived yet. Do not claim
        partitioning made queries faster on the basis of this run.
+```
+
+### BACKFILL-TRANSFORM-001
+
+```text
+metric_id: BACKFILL-TRANSFORM-001
+metric: a changed transformation rule reprocessed from Bronze over a bounded range
+value: 2 partitions updated, 5 left untouched, 9 of 9 checks pass
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: `silver` label, 100,000 events across 7 daily partitions, range 2015-05-10 to
+               2015-05-12 exclusive
+command / test: scripts/test_backfill_transformation.py
+config: additive rule change adding category_known_since_ms and category_age_at_event_ms to
+        fact_events, applied via scripts/backfill.py
+evidence: benchmarks/raw/backfill_transformation_test.json
+notes: the test recreates the pre-change schema first, so it is repeatable rather than only
+       passing on a table that happens to be mid-migration.
+
+       Verified: the new columns appear only inside the backfilled range, partitions outside it
+       still hold NULL, row counts are unchanged at 100,000 before and after, a subsequent full
+       rebuild propagates the change everywhere, and Bronze is byte-identical throughout.
+
+       The change is additive by design, so enrichment coverage is untouched and
+       ENRICH-CATEGORY-001 at 23.835% remains valid. Measured category age at event ranges from
+       9,663 ms to 313,883,766 ms, always non-negative, which is a second independent check that
+       no property predates its own validity.
+```
+
+### BACKFILL-SCOPE-001
+
+```text
+metric_id: BACKFILL-SCOPE-001
+metric: what a bounded backfill actually rewrites, and how long it takes
+value: 28,321 of 100,000 rows reprocessed in 35.8 s
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: `silver` label, 2 of 7 daily partitions
+command / test: scripts/backfill.py --start-date 2015-05-10 --end-date 2015-05-12
+config: Delta replaceWhere plus mergeSchema, driver 1g, executor 1600m, 6 cores
+evidence: benchmarks/raw/backfill_report.json
+notes: Silver 18.9 s, Gold 16.9 s. Three tables rebuilt surgically (fact_events,
+       fact_transactions, mart_daily_item_metrics) and two rebuilt in full
+       (mart_item_funnel, mart_category_performance) because they aggregate across all history
+       with no date in their grain. Rebuilding those from the bounded slice would silently
+       discard every other day, so they read all of Silver instead. Reported by the job rather
+       than hidden.
+
+       A single wall-clock timing on one machine, not a throughput benchmark.
+```
+
+### REGRESSION-SUITE-002
+
+```text
+metric_id: REGRESSION-SUITE-002
+metric: every phase verification run together after the Phase 8 changes
+value: 13 of 13 passed in 1121.8 s
+date: 2026-09-16
+git_commit: pending
+environment: ENV-LOCAL-DOCKER
+dataset slice: each check builds its own fixture
+command / test: scripts/run_regression.py
+config: phases 3 through 8 plus the validation parity unit tests
+evidence: benchmarks/raw/regression_suite.json
+notes: supersedes REGRESSION-SUITE-001. Run because Phase 8 changed the Gold writer to use
+       mergeSchema and added a bounded-rebuild path, either of which could have broken the
+       Phase 7 guarantees. Nothing regressed.
 ```
