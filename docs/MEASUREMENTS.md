@@ -66,13 +66,13 @@ category_tree.csv               1,669 rows  sha256 94e865eb0a3d48cbbfe3b79079018
 | SCHEMA-RESOLUTION-001 | v2 record read by a v1 reader | decodes, 2 unknown fields dropped | 2026-09-15 | `a36dd19` | `schema_dlq_verification.json` |
 | DQ-DLQROUTE-001 | malformed records routed to DLQ | 960 of 960 on the wire | 2026-09-15 | `a36dd19` | `schema_dlq_verification.json` |
 | DQ-NOLOSS-001 | valid plus DLQ equals consumed | 19,462 + 960 = 20,422 | 2026-09-15 | `a36dd19` | `dlq_router_stats.json` |
-| STREAM-BRONZE-001 | events reaching Bronze from Kafka | 50,000 of 50,000, all ids unique | 2026-09-15 | pending | `streaming_verification.json` |
-| STREAM-WINDOW-001 | 5 minute event-time window counts vs source | 777 of 777 windows exact | 2026-09-15 | pending | `streaming_verification.json` |
-| STREAM-APPROX-001 | HyperLogLog distinct visitor accuracy | 0.28% mean, 3.06% worst | 2026-09-15 | pending | `streaming_verification.json` |
-| STREAM-LATENESS-001 | measured event-time lateness distribution | p50 104 min, p95 845 min, max 959 min | 2026-09-15 | pending | `lateness_distribution.json` |
-| RECOVERY-DEDUP-001 | injected duplicates removed from the aggregate | 2,389 of 2,389, 777 windows exact | 2026-09-15 | pending | `duplicate_test.json` |
-| RECOVERY-LATE-001 | events dropped by watermark, two settings | 0.56% at 24h, 3.45% at 1 min | 2026-09-15 | pending | `late_event_test.json` |
-| RECOVERY-RESTART-001 | checkpoint restart, loss and inflation | 0 lost, 0 duplicated, 50,000 of 50,000 | 2026-09-15 | pending | `restart_test.json` |
+| STREAM-BRONZE-001 | events reaching Bronze from Kafka | 50,000 of 50,000, all ids unique | 2026-09-15 | `34773b0` | `streaming_verification.json` |
+| STREAM-WINDOW-001 | 5 minute event-time window counts vs source | 777 of 777 windows exact | 2026-09-15 | `34773b0` | `streaming_verification.json` |
+| STREAM-APPROX-001 | HyperLogLog distinct visitor accuracy | 0.28% mean, 3.06% worst | 2026-09-15 | `34773b0` | `streaming_verification.json` |
+| STREAM-LATENESS-001 | measured event-time lateness distribution | p50 104 min, p95 845 min, max 959 min | 2026-09-15 | `34773b0` | `lateness_distribution.json` |
+| RECOVERY-DEDUP-001 | injected duplicates removed from the aggregate | 2,389 of 2,389, 777 windows exact | 2026-09-15 | `34773b0` | `duplicate_test.json` |
+| RECOVERY-LATE-001 | events dropped by watermark, two settings | 0.56% at 24h, 3.45% at 1 min | 2026-09-15 | `34773b0` | `late_event_test.json` |
+| RECOVERY-RESTART-001 | checkpoint restart, loss and inflation | 0 lost, 0 duplicated, 50,000 of 50,000 | 2026-09-15 | `34773b0` | `restart_test.json` |
 
 The eight `DATASET-*` and `IDENTITY-*` rows were produced by the code at commit
 `8dbe1f4a997b584b29120dfefcd5706e35a9746d`.
@@ -82,8 +82,8 @@ The four `REPLAY-*` and `PRODUCER-*` rows were produced by the code at commit
 
 The four `SCHEMA-*` and `DQ-*` rows were produced by the code at commit `a36dd199b38406aef7e381ba220a3df9fd0ded9c`.
 
-The Phase 5 and Phase 6 rows show `pending` until the commit containing the streaming job and
-the reliability tests is made.
+The three `STREAM-*` rows from Phase 5 and the four Phase 6 rows (`STREAM-LATENESS-001` and
+the `RECOVERY-*` set) were produced by the code at commit `34773b0ff7104b1c891d3bfbd094a2754db2d577`.
 
 ## Records
 
@@ -380,7 +380,7 @@ metric_id: STREAM-BRONZE-001
 metric: events carried from Kafka into the Bronze Delta table
 value: 50,000 of 50,000, 50,000 distinct event ids, 0 undecodable
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: first 50,000 events after sorting by (event_timestamp, source_row_number)
 command / test: scripts/verify_streaming.py
@@ -398,7 +398,7 @@ metric_id: STREAM-WINDOW-001
 metric: 5 minute event-time window counts against independently computed expectations
 value: 777 of 777 windows exact, 0 mismatches across events, views, carts, transactions
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: same 50,000 event fixture
 command / test: scripts/verify_streaming.py
@@ -418,7 +418,7 @@ metric_id: STREAM-APPROX-001
 metric: approx_count_distinct error for unique visitors per window
 value: 0.28% mean, 3.06% worst relative error, 3 worst absolute error
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: 422 windows with 50 or more distinct visitors, of 777 total
 command / test: scripts/verify_streaming.py
@@ -437,7 +437,7 @@ metric_id: STREAM-LATENESS-001
 metric: how far behind the running maximum event time each record arrives
 value: p50 104 min, p90 737 min, p95 845 min, p99 916 min, max 959 min (16.0 h)
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: 50,000 event fixture, modelled at 5,000 per trigger
 command / test: streaming/jobs/measure_lateness.py
@@ -460,7 +460,7 @@ metric_id: RECOVERY-DEDUP-001
 metric: injected replay duplicates removed before the windowed aggregate
 value: 2,389 of 2,389 removed, all 777 windows match the source exactly
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: 50,000 source events, 5% duplicate injection, seed 42
 command / test: scripts/test_duplicates.py
@@ -480,7 +480,7 @@ metric_id: RECOVERY-LATE-001
 metric: events excluded from the deduplicated stream by the watermark
 value: 0.560% (280 of 50,000) at a 24 hour watermark, 3.448% (1,724) at 1 minute
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: 50,000 source events with 10% additional delay injected on top of replay lateness
 command / test: scripts/test_late_events.py
@@ -500,7 +500,7 @@ metric_id: RECOVERY-RESTART-001
 metric: data loss and duplicate inflation across a mid-stream driver kill and restart
 value: 0 events lost, 0 duplicates introduced, 50,000 of 50,000 recovered
 date: 2026-09-15
-git_commit: pending
+git_commit: 34773b0ff7104b1c891d3bfbd094a2754db2d577
 environment: ENV-LOCAL-DOCKER
 dataset slice: 50,000 source events, 4,000 per trigger
 command / test: scripts/test_restart.py

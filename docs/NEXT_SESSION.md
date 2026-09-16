@@ -9,7 +9,7 @@ the log at the bottom.
 ```text
 phase:                Phase 6 complete
 last task completed:  Watermark measured, dedup, late-event policy, checkpoint restart proven.
-branch / commit:      main, Phase 6 changes not yet committed
+branch / commit:      main, 34773b0
 services running:     streaming profile up, no Spark application running
 services stopped:     all test streams self-terminated and released their cores
 next command to run:  make verify-reliability
@@ -30,7 +30,7 @@ Definition of done, all four met.
 | no silent loss in controlled test | 0 lost, 0 duplicates introduced |
 
 Phase 5's 13 checks were re-run afterwards and still pass, so the restructure caused no
-regression. Evidence in `docs/evidence/phase6/`. Four ledger rows added, `pending` until commit.
+regression. Evidence in `docs/evidence/phase6/`. Four ledger rows added, pinned to `34773b0`.
 
 ### The watermark, measured instead of guessed
 
